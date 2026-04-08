@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../Skills"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "GDNN-GDTX"
+	}
+}

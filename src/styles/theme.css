@@ -1,0 +1,375 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --font-family: 'Roboto', sans-serif;
+  --background: #fafbfc;
+  --foreground: #1a1a2e;
+  --card: #ffffff;
+  --card-foreground: #1a1a2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a2e;
+  --primary: #dc2f3c;
+  --primary-foreground: #ffffff;
+  --secondary: #fff3f4;
+  --secondary-foreground: #dc2f3c;
+  --muted: #f4f5f7;
+  --muted-foreground: #64748b;
+  --accent: #f26522;
+  --accent-foreground: #ffffff;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.06);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.875rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: #0f1117;
+  --foreground: #e8eaed;
+  --card: #1a1c24;
+  --card-foreground: #e8eaed;
+  --popover: #1a1c24;
+  --popover-foreground: #e8eaed;
+  --primary: #dc2f3c;
+  --primary-foreground: #ffffff;
+  --secondary: #2a1215;
+  --secondary-foreground: #f87171;
+  --muted: #1e2028;
+  --muted-foreground: #8b92a5;
+  --accent: #f26522;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #fca5a5;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.06);
+  --input-background: #1e2028;
+  --switch-background: #3a3d48;
+  --ring: rgba(220, 47, 60, 0.5);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: #141620;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #dc2f3c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e2028;
+  --sidebar-accent-foreground: #e8eaed;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: rgba(220, 47, 60, 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    font-size: var(--font-size);
+    font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    letter-spacing: -0.025em;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    letter-spacing: -0.02em;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: white;
+  }
+}
+
+/* Reduced motion: disable all CSS transitions/animations for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus visible styling for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Content-visibility optimization for below-the-fold sections */
+.content-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+.content-defer-sm {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
+.content-defer-lg {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
+/* Shimmer sweep animation for image/content placeholders */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-sweep {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.03) 40%,
+    rgba(0, 0, 0, 0.06) 50%,
+    rgba(0, 0, 0, 0.03) 60%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 1.8s ease-in-out infinite;
+}
+
+.dark .shimmer-sweep {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 60%,
+    transparent 100%
+  );
+}
+
+/* GPU-accelerated hover cards - opt-in for smooth translate/scale */
+.hover-lift {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* Print stylesheet — optimized for AdminAnalytics PDF export */
+@media print {
+  /* Hide non-essential UI elements */
+  nav,
+  aside,
+  header,
+  footer,
+  .no-print,
+  [data-sidebar],
+  [role="navigation"],
+  button,
+  select,
+  input,
+  .skip-to-content,
+  [aria-live],
+  .network-status {
+    display: none !important;
+  }
+
+  /* Reset background and colors for print */
+  body {
+    background: white !important;
+    color: #1a1a2e !important;
+    font-size: 11px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force white backgrounds on cards */
+  .dark {
+    --background: #ffffff;
+    --foreground: #1a1a2e;
+    --card: #ffffff;
+    --card-foreground: #1a1a2e;
+    --border: rgba(0, 0, 0, 0.1);
+    --muted: #f4f5f7;
+    --muted-foreground: #64748b;
+  }
+
+  /* Main content full width */
+  main,
+  [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Page break control */
+  .print-break-before {
+    break-before: page;
+  }
+
+  .print-break-after {
+    break-after: page;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  /* Cards: remove shadows, keep borders */
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  /* Charts: ensure they render properly */
+  .recharts-wrapper {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  svg {
+    max-width: 100% !important;
+  }
+
+  /* Print header with date */
+  .print-header::after {
+    content: "Bao cao IELTS Pro — " attr(data-date);
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 8px;
+  }
+
+  /* Grid adjustments for print */
+  .grid {
+    gap: 8px !important;
+  }
+
+  /* Ensure gradient fills print with colors */
+  [class*="bg-gradient"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  @page :first {
+    margin-top: 1cm;
+  }
+}
