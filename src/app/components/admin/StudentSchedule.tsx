@@ -114,7 +114,7 @@ export function StudentSchedule() {
               );
             })}
           </div>
-          </div>{/* /overflow-x-auto */}
+          </div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-white/[0.03]">
             {weekLessons.length === 0 ? (
