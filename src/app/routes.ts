@@ -12,8 +12,6 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: Layout,
-    HydrateFallback: () => null,
-    hydrateFallbackElement: null,
     children: [
       {
         index: true,
@@ -28,30 +26,24 @@ export const router = createBrowserRouter([
   // Auth pages (no header/footer)
   {
     path: "/login",
-    hydrateFallbackElement: null,
     lazy: () => import("./components/auth/LoginPage").then((m) => ({ Component: m.LoginPage })),
   },
   {
     path: "/register",
-    hydrateFallbackElement: null,
     lazy: () => import("./components/auth/RegisterPage").then((m) => ({ Component: m.RegisterPage })),
   },
   {
     path: "/forgot-password",
-    hydrateFallbackElement: null,
     lazy: () => import("./components/auth/ForgotPasswordPage").then((m) => ({ Component: m.ForgotPasswordPage })),
   },
   {
     path: "/reset-password",
-    hydrateFallbackElement: null,
     lazy: () => import("./components/auth/ResetPasswordPage").then((m) => ({ Component: m.ResetPasswordPage })),
   },
   // Admin portal (own layout)
   {
     path: "/admin",
     Component: AdminLayout,
-    HydrateFallback: () => null,
-    hydrateFallbackElement: null,
     children: [
       {
         index: true,
