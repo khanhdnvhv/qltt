@@ -11,19 +11,22 @@ import { Download, X, Smartphone, RefreshCw } from "lucide-react";
  */
 
 // Inline service worker code as a blob (since we can't create files outside /src)
+const BASE = import.meta.env.BASE_URL; // '/qltt/' in production, '/' in dev
+
 const SW_CODE = `
-const CACHE_NAME = 'ielts-pro-v2';
-const STATIC_CACHE = 'ielts-pro-static-v2';
-const IMAGE_CACHE = 'ielts-pro-images-v1';
-const OFFLINE_URL = '/';
+const CACHE_NAME = 'gdnn-gdtx-v1';
+const STATIC_CACHE = 'gdnn-gdtx-static-v1';
+const IMAGE_CACHE = 'gdnn-gdtx-images-v1';
+const BASE_URL = '${import.meta.env.BASE_URL}';
+const OFFLINE_URL = BASE_URL;
 
 // Max items per cache to prevent unbounded growth
 const IMAGE_CACHE_LIMIT = 60;
 const STATIC_CACHE_LIMIT = 100;
 
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
+  BASE_URL,
+  BASE_URL + 'index.html',
 ];
 
 // Helper: trim cache to max size (LRU-style  oldest first)
@@ -267,7 +270,7 @@ export function PWAProvider() {
         const swBlob = new Blob([SW_CODE], { type: "application/javascript" });
         const swUrl = URL.createObjectURL(swBlob);
         const registration = await navigator.serviceWorker.register(swUrl, {
-          scope: "/",
+          scope: BASE,
         });
 
         // Check for updates
