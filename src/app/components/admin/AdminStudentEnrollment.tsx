@@ -52,6 +52,12 @@ export function AdminStudentEnrollment() {
 
   const handleSubmit = () => {
     if (!selectedCourse) return;
+    // [A] Pre-check: search for existing student by phone to avoid duplicate
+    const existingByPhone = students.find(s => s.phone === formData.phone && formData.phone);
+    if (existingByPhone) {
+      const dupEnroll = enrollments.find(e => e.studentId === existingByPhone.id && e.courseId === selectedCourse.id && (e.status === "active" || e.status === "reserve"));
+      if (dupEnroll) { toast.error(`Học viên ${existingByPhone.name} đã đăng ký khoá "${selectedCourse.name}".`); return; }
+    }
     const student = addStudent({
       code: newCode,
       name: formData.name,
@@ -69,7 +75,7 @@ export function AdminStudentEnrollment() {
       progress: 0,
       enrollDate: new Date().toLocaleDateString("vi-VN"),
     });
-    addEnrollment({
+    const enrollResult = addEnrollment({
       studentId: student.id,
       studentCode: student.code,
       studentName: student.name,
@@ -94,6 +100,7 @@ export function AdminStudentEnrollment() {
       attendanceRate: 100,
       color: "from-blue-500 to-indigo-500",
     });
+    if (!enrollResult.ok) { toast.error(enrollResult.error); return; }
     addFeeReceipt({
       receiptCode: `PT-${new Date().getFullYear()}-${String(enrollments.length + 1).padStart(4, "0")}`,
       studentId: student.id,

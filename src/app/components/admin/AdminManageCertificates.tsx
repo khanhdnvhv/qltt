@@ -43,16 +43,17 @@ export function AdminManageCertificates() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { page, pageSize, setPage, setPageSize } = useUrlPagination();
 
-  // Status transition logic
+  // Status transition logic — now validates business rules
   const advanceStatus = useCallback((id: string) => {
     const cert = data.find(c => c.id === id);
     if (!cert) return;
     if (cert.status === "PENDING") {
-      const sn = `A${100000 + Math.floor(Math.random() * 900000)}`;
-      updateCertificateStatus(id, "PRINTED", sn);
-      toast.success(`Đã rút phôi #${sn} — chờ lệnh in`);
+      const result = updateCertificateStatus(id, "PRINTED");
+      if (!result.ok) { toast.error(result.error); return; }
+      toast.success(`Đã rút phôi — serial ${cert.serialNo ?? "…"} — chờ lệnh in`);
     } else if (cert.status === "PRINTED") {
-      updateCertificateStatus(id, "ISSUED");
+      const result = updateCertificateStatus(id, "ISSUED");
+      if (!result.ok) { toast.error(result.error); return; }
       toast.success(`Đã phát chứng chỉ cho "${cert.studentName}"`);
     }
   }, [data, updateCertificateStatus]);
@@ -61,9 +62,14 @@ export function AdminManageCertificates() {
     if (selected.size === 0) { toast.error("Chưa chọn học viên nào"); return; }
     const printable = data.filter(c => selected.has(c.id) && c.status === "PRINTED");
     if (printable.length === 0) { toast.error("Không có chứng chỉ nào ở trạng thái 'Đã IN' để phát"); return; }
-    printable.forEach(c => updateCertificateStatus(c.id, "ISSUED"));
+    let ok = 0;
+    printable.forEach(c => {
+      const r = updateCertificateStatus(c.id, "ISSUED");
+      if (r.ok) ok++;
+      else toast.error(`${c.studentName}: ${r.error}`);
+    });
     setSelected(new Set());
-    toast.success(`Đã cấp phát hàng loạt ${printable.length} chứng chỉ`);
+    if (ok > 0) toast.success(`Đã cấp phát hàng loạt ${ok} chứng chỉ`);
   }, [selected, data, updateCertificateStatus]);
 
   const toggleSelect = useCallback((id: string) => {

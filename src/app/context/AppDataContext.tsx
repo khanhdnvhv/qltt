@@ -330,6 +330,20 @@ export interface AppInspection {
 
 export type AppNotifType = "plan_approved" | "plan_rejected" | "plan_revision" | "system" | "fee" | "student";
 
+// ── Business result wrapper ───────────────────────────────────────────────────
+export type BizResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+export interface AppAuditLog {
+  id: string;
+  time: string; // ISO
+  actor: string;
+  action: string;
+  entity: "enrollment" | "certificate" | "training_plan" | "fee_receipt" | "student" | "class" | "dropout" | "transfer" | "inspection";
+  entityId: string;
+  detail: string;
+}
+
 export interface AppNotification {
   id: string;
   type: AppNotifType;
@@ -807,6 +821,29 @@ const SEED_INSPECTIONS: AppInspection[] = [
   { id: "TT-004", code: "TT-2026-004", centerName: "Ngoại ngữ Không Gian", inspectionDate: "28/04/2026", type: "Chuyên đề", areas: ["Chương trình đào tạo", "Kết quả thi cấp CC"], leader: "Lê Thị Mai", teamMembers: ["Nguyễn Văn Tuấn"], findings: "", violations: "", recommendations: "", score: null, status: "planned", dueDate: "15/05/2026", reportDate: null },
 ];
 
+// ─── Business helpers ────────────────────────────────────────────────────────
+
+function computeCertExpiry(certType: string): string {
+  const EXPIRY_MAP: [string, number][] = [
+    ["IELTS", 2], ["TOEIC", 2], ["VSTEP", 0], ["JLPT", 5], ["HSK", 3],
+    ["Tin học", 5], ["IC3", 3], ["Ngoại ngữ", 0],
+  ];
+  const match = EXPIRY_MAP.find(([k]) => certType.includes(k));
+  if (!match || match[1] === 0) return "Không hết hạn";
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + match[1]);
+  return d.toLocaleDateString("vi-VN");
+}
+
+const CLASS_STATUS_NEXT: Record<AppClass["status"], AppClass["status"] | null> = {
+  "Tuyển sinh": "Hoạt động",
+  "Hoạt động":  "Kết thúc",
+  "Kết thúc":   null,
+  "Hủy":        null,
+};
+
+const SEED_AUDIT_LOGS: AppAuditLog[] = [];
+
 // ─── localStorage helper hook ──────────────────────────────────────────────
 
 const STORE_KEY = "gdnn_app_data_v1";
@@ -864,17 +901,24 @@ interface AppDataCtx {
   addStudent: (s: Omit<AppStudent, "id">) => AppStudent;
   updateStudentStatus: (id: string, status: AppStudent["status"]) => void;
 
-  addEnrollment: (e: Omit<AppEnrollment, "id">) => AppEnrollment;
+  addEnrollment: (e: Omit<AppEnrollment, "id">) => BizResult<AppEnrollment>;
   updateEnrollmentStatus: (id: string, status: AppEnrollment["status"]) => void;
 
   addClass: (c: Omit<AppClass, "id">) => void;
   updateClass: (id: string, updates: Partial<AppClass>) => void;
+  advanceClassStatus: (id: string) => BizResult;
+  checkScheduleConflict: (teacherId: string, roomId: string, scheduleItems: AppClass["scheduleItems"], excludeId?: string) => AppClass[];
 
   addExamResult: (r: Omit<AppExamResult, "id">) => void;
   updateExamResult: (id: string, updates: Partial<AppExamResult>) => void;
+  lockedExamPlans: string[];
+  lockExamPlan: (id: string) => void;
+  unlockExamPlan: (id: string) => void;
 
   addCertificate: (c: Omit<AppCertificate, "id">) => void;
-  updateCertificateStatus: (id: string, status: AppCertificate["status"], serialNo?: string) => void;
+  updateCertificateStatus: (id: string, status: AppCertificate["status"], serialNo?: string) => BizResult;
+  isFeesPaid: (studentId: string, courseId: string) => boolean;
+  isExamPassed: (studentId: string, courseId: string) => boolean;
 
   addFeeReceipt: (r: Omit<AppFeeReceipt, "id">) => AppFeeReceipt;
 
@@ -895,7 +939,7 @@ interface AppDataCtx {
 
   // Student workflow
   studentTransfers: AppStudentTransfer[];
-  addStudentTransfer: (t: Omit<AppStudentTransfer, "id">) => AppStudentTransfer;
+  addStudentTransfer: (t: Omit<AppStudentTransfer, "id">) => BizResult<AppStudentTransfer>;
 
   reserveRecords: AppStudentReserve[];
   addReserveRecord: (r: Omit<AppStudentReserve, "id">) => AppStudentReserve;
@@ -919,7 +963,10 @@ interface AppDataCtx {
   updateFeeDiscountPolicy: (id: string, updates: Partial<AppFeeDiscountPolicy>) => void;
 
   feeDiscountApplications: AppFeeDiscountApplication[];
-  addFeeDiscountApplication: (a: Omit<AppFeeDiscountApplication, "id">) => void;
+  addFeeDiscountApplication: (a: Omit<AppFeeDiscountApplication, "id">) => BizResult;
+
+  // Audit
+  auditLogs: AppAuditLog[];
 
   // Notifications
   notifications: AppNotification[];
@@ -964,6 +1011,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications]                     = useLS<AppNotification[]>("notifications", SEED_NOTIFICATIONS);
   const [certStockBatches, setCertStockBatches]               = useLS<AppCertStockBatch[]>("certStockBatches", SEED_CERT_STOCK);
   const [inspections, setInspections]                         = useLS<AppInspection[]>("inspections", SEED_INSPECTIONS);
+  const [lockedExamPlans, setLockedExamPlans]                 = useLS<string[]>("lockedExamPlans", []);
+  const [auditLogs, setAuditLogs]                             = useLS<AppAuditLog[]>("auditLogs", SEED_AUDIT_LOGS);
+
+  // Internal audit helper (defined early so other callbacks can depend on it)
+  const _addAuditLog = useCallback((log: Omit<AppAuditLog, "id" | "time">) => {
+    setAuditLogs(prev => [{ ...log, id: genId("AL"), time: new Date().toISOString() }, ...prev].slice(0, 300));
+  }, [setAuditLogs]);
 
   // ── Students ──
   const addStudent = useCallback((s: Omit<AppStudent, "id">): AppStudent => {
@@ -977,13 +1031,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [setStudents]);
 
   // ── Enrollments ──
-  const addEnrollment = useCallback((e: Omit<AppEnrollment, "id">): AppEnrollment => {
+  const addEnrollment = useCallback((e: Omit<AppEnrollment, "id">): BizResult<AppEnrollment> => {
+    // [A] Capacity check
+    const cls = classes.find(c => c.id === e.classId);
+    if (cls && cls.currentStudents >= cls.maxStudents) {
+      return { ok: false, error: `Lớp "${cls.courseName}" đã đủ sĩ số (${cls.maxStudents}/${cls.maxStudents}). Không thể đăng ký thêm.` };
+    }
+    // [A] Duplicate enrollment check
+    const dup = enrollments.find(en =>
+      en.studentId === e.studentId && en.courseId === e.courseId &&
+      (en.status === "active" || en.status === "reserve")
+    );
+    if (dup) {
+      return { ok: false, error: `Học viên đã đăng ký và đang hoạt động trong khóa "${e.courseName}".` };
+    }
     const newE = { ...e, id: genId("EN") };
     setEnrollments(p => [newE, ...p]);
-    // Tăng currentStudents trong class
-    setClasses(p => p.map(c => c.id === e.classId ? { ...c, currentStudents: c.currentStudents + 1 } : c));
-    return newE;
-  }, [setEnrollments, setClasses]);
+    if (e.classId) {
+      setClasses(p => p.map(c => c.id === e.classId ? { ...c, currentStudents: c.currentStudents + 1 } : c));
+    }
+    _addAuditLog({ actor: "admin", action: "ENROLL", entity: "enrollment", entityId: newE.id, detail: `${e.studentName} → ${e.courseName}` });
+    return { ok: true, data: newE };
+  }, [setEnrollments, setClasses, classes, enrollments, _addAuditLog]);
 
   const updateEnrollmentStatus = useCallback((id: string, status: AppEnrollment["status"]) => {
     setEnrollments(p => p.map(e => e.id === id ? { ...e, status } : e));
@@ -998,6 +1067,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setClasses(p => p.map(c => c.id === id ? { ...c, ...updates } : c));
   }, [setClasses]);
 
+  // [B] Enforce class lifecycle: Tuyển sinh → Hoạt động → Kết thúc
+  const advanceClassStatus = useCallback((id: string): BizResult => {
+    const cls = classes.find(c => c.id === id);
+    if (!cls) return { ok: false, error: "Không tìm thấy lớp." };
+    const next = CLASS_STATUS_NEXT[cls.status];
+    if (!next) return { ok: false, error: `Lớp đang ở trạng thái "${cls.status}", không thể tiến thêm.` };
+    if (next === "Hoạt động" && cls.currentStudents === 0) {
+      return { ok: false, error: "Lớp chưa có học viên nào. Phải có ít nhất 1 học viên để khai giảng." };
+    }
+    setClasses(p => p.map(c => c.id === id ? { ...c, status: next } : c));
+    _addAuditLog({ actor: "admin", action: "CLASS_STATUS", entity: "class", entityId: id, detail: `${cls.courseName}: ${cls.status} → ${next}` });
+    return { ok: true, data: undefined };
+  }, [classes, setClasses, _addAuditLog]);
+
+  // [C] Detect teacher/room schedule conflicts
+  const checkScheduleConflict = useCallback((
+    teacherId: string, roomId: string,
+    scheduleItems: AppClass["scheduleItems"],
+    excludeId?: string
+  ): AppClass[] => {
+    return classes.filter(c => {
+      if (c.id === excludeId || c.status === "Kết thúc" || c.status === "Hủy") return false;
+      const sameTeacher = teacherId !== "" && c.teacherId === teacherId;
+      const sameRoom    = roomId    !== "" && c.room      === roomId;
+      if (!sameTeacher && !sameRoom) return false;
+      return scheduleItems.some(item =>
+        c.scheduleItems.some(existing =>
+          existing.dayOfWeek === item.dayOfWeek &&
+          existing.startTime < item.endTime &&
+          item.startTime < existing.endTime
+        )
+      );
+    });
+  }, [classes]);
+
   // ── Exam Results ──
   const addExamResult = useCallback((r: Omit<AppExamResult, "id">) => {
     setExamResults(p => [{ ...r, id: genId("ER") }, ...p]);
@@ -1007,29 +1111,108 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setExamResults(p => p.map(r => r.id === id ? { ...r, ...updates } : r));
   }, [setExamResults]);
 
+  // [B] Persist exam plan lock state
+  const lockExamPlan = useCallback((id: string) => {
+    setLockedExamPlans(prev => prev.includes(id) ? prev : [...prev, id]);
+  }, [setLockedExamPlans]);
+
+  const unlockExamPlan = useCallback((id: string) => {
+    setLockedExamPlans(prev => prev.filter(x => x !== id));
+  }, [setLockedExamPlans]);
+
   // ── Certificates ──
   const addCertificate = useCallback((c: Omit<AppCertificate, "id">) => {
     setCertificates(p => [{ ...c, id: genId("CERT") }, ...p]);
   }, [setCertificates]);
 
-  const updateCertificateStatus = useCallback((id: string, status: AppCertificate["status"], serialNo?: string) => {
-    setCertificates(p => p.map(c => {
-      if (c.id !== id) return c;
+  const updateCertificateStatus = useCallback((id: string, status: AppCertificate["status"], serialNo?: string): BizResult => {
+    const cert = certificates.find(c => c.id === id);
+    if (!cert) return { ok: false, error: "Không tìm thấy chứng chỉ." };
+
+    if (status === "PRINTED") {
+      // [A] Gate 1: exam passed
+      const passed = examResults.some(r => r.studentId === cert.studentId && r.status === "pass");
+      if (!passed) {
+        return { ok: false, error: `"${cert.studentName}" chưa có kết quả thi ĐẠT. Không thể in chứng chỉ.` };
+      }
+      // [A] Gate 2: fee paid
+      const paid = feeReceipts.some(r =>
+        r.studentId === cert.studentId && r.courseId === cert.courseId && r.status === "confirmed"
+      );
+      if (!paid) {
+        return { ok: false, error: `"${cert.studentName}" chưa đóng học phí khoá "${cert.courseName}".` };
+      }
+      // [A] Gate 3: cert stock available
+      const batch = certStockBatches.find(b => {
+        if (b.certType !== cert.certType || b.status === "pending") return false;
+        const used = certificates.filter(c => c.serialNo?.startsWith(b.batchCode + "-")).length;
+        return b.allocated > used;
+      });
+      if (!batch) {
+        return { ok: false, error: `Hết phôi loại "${cert.certType}". Vui lòng rót thêm phôi tại mục Quản lý Phôi CC.` };
+      }
+      const usedInBatch = certificates.filter(c => c.serialNo?.startsWith(batch.batchCode + "-")).length;
+      const sn = serialNo || `${batch.batchCode}-${String(usedInBatch + 1).padStart(4, "0")}`;
+      setCertificates(p => p.map(c => c.id === id ? { ...c, status: "PRINTED", serialNo: sn } : c));
+      _addAuditLog({ actor: "admin", action: "CERT_PRINT", entity: "certificate", entityId: id, detail: `#${sn} — ${cert.studentName}` });
+      return { ok: true, data: undefined };
+    }
+
+    if (status === "ISSUED") {
       const now = new Date().toLocaleDateString("vi-VN");
-      return {
-        ...c, status,
-        ...(status === "PRINTED" && serialNo ? { serialNo } : {}),
-        ...(status === "ISSUED" ? { issuedDate: now } : {}),
-      };
-    }));
-  }, [setCertificates]);
+      const expiry = computeCertExpiry(cert.certType);
+      setCertificates(p => p.map(c =>
+        c.id === id ? { ...c, status: "ISSUED", issuedDate: now, expiryDate: expiry || c.expiryDate } : c
+      ));
+      _addAuditLog({ actor: "admin", action: "CERT_ISSUE", entity: "certificate", entityId: id, detail: `${cert.studentName} — ${cert.certType}` });
+      // [C] Low stock warning notification
+      const typeStock = certStockBatches
+        .filter(b => b.certType === cert.certType && b.status !== "pending")
+        .reduce((acc, b) => acc + b.allocated, 0);
+      const typeUsed = certificates.filter(c => c.certType === cert.certType && c.status !== "PENDING").length + 1;
+      const remaining = typeStock - typeUsed;
+      if (remaining >= 0 && remaining <= 5) {
+        setNotifications(prev => [{
+          id: genId("NT"), type: "system" as AppNotifType,
+          title: "Cảnh báo sắp hết phôi",
+          message: `Phôi loại "${cert.certType}" chỉ còn ${remaining} cái. Cần liên hệ Sở rót thêm sớm.`,
+          time: new Date().toISOString(), read: false,
+          link: "/admin/cert-stock", targetRole: "department",
+        }, ...prev].slice(0, 50));
+      }
+      return { ok: true, data: undefined };
+    }
+
+    setCertificates(p => p.map(c => c.id === id ? { ...c, status } : c));
+    return { ok: true, data: undefined };
+  }, [certificates, examResults, feeReceipts, certStockBatches, setCertificates, setNotifications, _addAuditLog]);
+
+  // [C] Business query helpers
+  const isFeesPaid = useCallback((studentId: string, courseId: string): boolean =>
+    feeReceipts.some(r => r.studentId === studentId && r.courseId === courseId && r.status === "confirmed"),
+  [feeReceipts]);
+
+  const isExamPassed = useCallback((studentId: string, courseId: string): boolean => {
+    const enroll = enrollments.find(e => e.studentId === studentId && e.courseId === courseId);
+    if (!enroll) return false;
+    return examResults.some(r => r.studentId === studentId && r.status === "pass");
+  }, [enrollments, examResults]);
 
   // ── Fee Receipts ──
   const addFeeReceipt = useCallback((r: Omit<AppFeeReceipt, "id">): AppFeeReceipt => {
     const newR = { ...r, id: genId("FP") };
     setFeeReceipts(p => [newR, ...p]);
+    // [B] Auto-sync fee period paidCount + collectedAmount
+    if (r.status === "confirmed") {
+      setFeePeriods(p => p.map(fp =>
+        fp.courseName === r.courseName || fp.name === r.periodName
+          ? { ...fp, paidCount: fp.paidCount + 1, collectedAmount: fp.collectedAmount + r.finalAmount }
+          : fp
+      ));
+    }
+    _addAuditLog({ actor: "admin", action: "FEE_RECEIPT", entity: "fee_receipt", entityId: newR.id, detail: `${r.studentName} — ${r.finalAmount.toLocaleString("vi-VN")}đ` });
     return newR;
-  }, [setFeeReceipts]);
+  }, [setFeeReceipts, setFeePeriods, _addAuditLog]);
 
   // ── Training Plans ──
   const addTrainingPlan = useCallback((p: Omit<AppTrainingPlan, "id" | "code">) => {
@@ -1116,17 +1299,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [setLectures]);
 
   // ── Student Transfers ──
-  const addStudentTransfer = useCallback((t: Omit<AppStudentTransfer, "id">): AppStudentTransfer => {
+  const addStudentTransfer = useCallback((t: Omit<AppStudentTransfer, "id">): BizResult<AppStudentTransfer> => {
+    // [A] Capacity check on target class
+    const targetCls = classes.find(c => c.id === t.toClassId);
+    if (targetCls && targetCls.currentStudents >= targetCls.maxStudents) {
+      return { ok: false, error: `Lớp "${t.toClassName}" đã đủ sĩ số (${targetCls.maxStudents}). Không thể chuyển.` };
+    }
     const newT = { ...t, id: genId("TR") };
     setStudentTransfers(p => [newT, ...p]);
-    // Update enrollment class reference
     setEnrollments(p => p.map(e =>
       e.studentId === t.studentId && e.classId === t.fromClassId
         ? { ...e, classId: t.toClassId, classCode: t.toClassName }
         : e
     ));
-    return newT;
-  }, [setStudentTransfers, setEnrollments]);
+    // [B] Sync currentStudents on both classes
+    setClasses(p => p.map(c => {
+      if (c.id === t.fromClassId) return { ...c, currentStudents: Math.max(0, c.currentStudents - 1) };
+      if (c.id === t.toClassId)   return { ...c, currentStudents: c.currentStudents + 1 };
+      return c;
+    }));
+    _addAuditLog({ actor: "admin", action: "TRANSFER", entity: "transfer", entityId: newT.id, detail: `${t.studentName}: ${t.fromClassName} → ${t.toClassName}` });
+    return { ok: true, data: newT };
+  }, [setStudentTransfers, setEnrollments, setClasses, classes, _addAuditLog]);
 
   // ── Reserve Records ──
   const addReserveRecord = useCallback((r: Omit<AppStudentReserve, "id">): AppStudentReserve => {
@@ -1160,10 +1354,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setDropoutRecords(p => p.map(d => {
       if (d.id !== id) return d;
       setStudents(prev => prev.map(s => s.id === d.studentId ? { ...s, status: "dropped" as const } : s));
-      setEnrollments(prev => prev.map(e => e.studentId === d.studentId ? { ...e, status: "dropout" as const } : e));
+      // [B] Sync enrollment status + decrement class count
+      setEnrollments(prev => prev.map(e => {
+        if (e.studentId !== d.studentId || e.status === "dropout") return e;
+        setClasses(cls => cls.map(c =>
+          c.id === e.classId ? { ...c, currentStudents: Math.max(0, c.currentStudents - 1) } : c
+        ));
+        return { ...e, status: "dropout" as const };
+      }));
+      _addAuditLog({ actor: processedBy, action: "DROPOUT_CONFIRM", entity: "dropout", entityId: id, detail: `${d.studentName} — ${d.reason}` });
       return { ...d, status: "confirmed" as const, processedBy };
     }));
-  }, [setDropoutRecords, setStudents, setEnrollments]);
+  }, [setDropoutRecords, setStudents, setEnrollments, setClasses, _addAuditLog]);
 
   // ── Fee Refunds ──
   const addFeeRefund = useCallback((r: Omit<AppFeeRefund, "id">): AppFeeRefund => {
@@ -1200,11 +1402,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [setFeeDiscountPolicies]);
 
   // ── Fee Discount Applications ──
-  const addFeeDiscountApplication = useCallback((a: Omit<AppFeeDiscountApplication, "id">) => {
+  const addFeeDiscountApplication = useCallback((a: Omit<AppFeeDiscountApplication, "id">): BizResult => {
+    // [A] Policy validation
+    const policy = feeDiscountPolicies.find(p => p.id === a.policyId);
+    if (!policy) return { ok: false, error: "Chính sách miễn giảm không tồn tại." };
+    if (policy.status !== "active") return { ok: false, error: `Chính sách "${policy.name}" không còn hiệu lực.` };
+    if (policy.maxApply !== null && policy.appliedCount >= policy.maxApply) {
+      return { ok: false, error: `Chính sách "${policy.name}" đã đạt giới hạn áp dụng (${policy.maxApply} lần).` };
+    }
+    if (policy.validTo) {
+      const parts = policy.validTo.split("/").map(Number);
+      const expiry = parts.length === 3 ? new Date(parts[2], parts[1] - 1, parts[0]) : new Date(policy.validTo);
+      if (expiry < new Date()) {
+        return { ok: false, error: `Chính sách "${policy.name}" đã hết hạn vào ${policy.validTo}.` };
+      }
+    }
     setFeeDiscountApplications(prev => [{ ...a, id: genId("DA") }, ...prev]);
-    // Increment appliedCount on the policy
     setFeeDiscountPolicies(p => p.map(d => d.id === a.policyId ? { ...d, appliedCount: d.appliedCount + 1 } : d));
-  }, [setFeeDiscountApplications, setFeeDiscountPolicies]);
+    return { ok: true, data: undefined };
+  }, [feeDiscountPolicies, setFeeDiscountApplications, setFeeDiscountPolicies]);
 
   // ── Helpers ──
   const getStudentByUserId = useCallback((userId: string) => {
@@ -1252,7 +1468,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setNotifications(SEED_NOTIFICATIONS);
     setCertStockBatches(SEED_CERT_STOCK);
     setInspections(SEED_INSPECTIONS);
-  }, [setStudents, setEnrollments, setClasses, setExamResults, setCertificates, setFeeReceipts, setTrainingPlans, setLectures, setStudentTransfers, setReserveRecords, setDropoutRecords, setFeeRefunds, setFeePeriods, setFeeDiscountPolicies, setFeeDiscountApplications, setNotifications, setCertStockBatches, setInspections]);
+    setLockedExamPlans([]);
+    setAuditLogs([]);
+  }, [setStudents, setEnrollments, setClasses, setExamResults, setCertificates, setFeeReceipts, setTrainingPlans, setLectures, setStudentTransfers, setReserveRecords, setDropoutRecords, setFeeRefunds, setFeePeriods, setFeeDiscountPolicies, setFeeDiscountApplications, setNotifications, setCertStockBatches, setInspections, setLockedExamPlans, setAuditLogs]);
 
   return (
     <AppDataContext.Provider value={{
@@ -1275,6 +1493,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       notifications, addNotification, markNotificationRead, markAllNotificationsRead, removeNotification,
       certStockBatches, addCertStockBatch, updateCertStockBatch,
       inspections, addInspection, updateInspection,
+      advanceClassStatus, checkScheduleConflict,
+      lockedExamPlans, lockExamPlan, unlockExamPlan,
+      isFeesPaid, isExamPassed,
+      auditLogs,
       getStudentByUserId, getEnrollmentsByStudentId, getExamResultsByStudentId,
       getCertificatesByStudentId, getClassesByTeacherId, getLecturesByTeacherId,
       resetDemo,

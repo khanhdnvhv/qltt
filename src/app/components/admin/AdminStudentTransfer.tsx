@@ -80,7 +80,7 @@ export function AdminStudentTransfer() {
       toast.error("Lớp đã đầy chỗ. Vui lòng chọn lớp khác.");
       return;
     }
-    addStudentTransfer({
+    const result = addStudentTransfer({
       studentId: selectedStudent.id,
       studentCode: selectedStudent.code,
       studentName: selectedStudent.name,
@@ -92,6 +92,7 @@ export function AdminStudentTransfer() {
       transferDate: new Date().toLocaleDateString("vi-VN"),
       approvedBy: "Admin",
     });
+    if (!result.ok) { toast.error(result.error); return; }
     setSubmitted(true);
     toast.success(`Đã chuyển ${selectedStudent.name} sang ${selectedClass.name}`);
   };

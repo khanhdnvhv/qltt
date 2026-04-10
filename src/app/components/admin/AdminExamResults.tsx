@@ -14,13 +14,14 @@ import { useAppData } from "../../context/AppDataContext";
 
 export function AdminExamResults() {
   useDocumentTitle("Kết quả Thi");
-  const { examResults: data, updateExamResult } = useAppData();
+  const { examResults: data, updateExamResult, lockedExamPlans, lockExamPlan, unlockExamPlan } = useAppData();
   const [search, setSearch] = useState("");
   const [filters, setFilter] = useUrlFilters({ status: "all", exam: "all" });
   const { page, pageSize, setPage } = useUrlPagination();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScore, setEditScore] = useState<string>("");
-  const [lockedExams, setLockedExams] = useState<Set<string>>(new Set());
+  // [B] Use persisted lock state from context
+  const lockedExams = { has: (id: string) => lockedExamPlans.includes(id) };
   const [csvPreview, setCsvPreview] = useState<{ code: string; score: number }[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,12 +61,11 @@ export function AdminExamResults() {
   };
 
   const toggleLock = (examPlanId: string) => {
-    setLockedExams(prev => {
-      const next = new Set(prev);
-      if (next.has(examPlanId)) { next.delete(examPlanId); toast.info(`Đã mở khóa kỳ thi ${examPlanId}`); }
-      else { next.add(examPlanId); toast.success(`Đã khóa kết quả kỳ thi ${examPlanId}`); }
-      return next;
-    });
+    if (lockedExamPlans.includes(examPlanId)) {
+      unlockExamPlan(examPlanId); toast.info(`Đã mở khóa kỳ thi ${examPlanId}`);
+    } else {
+      lockExamPlan(examPlanId); toast.success(`Đã khóa kết quả kỳ thi ${examPlanId}`);
+    }
   };
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

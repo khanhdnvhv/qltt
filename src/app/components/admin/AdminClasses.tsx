@@ -69,7 +69,16 @@ export function AdminClasses() {
   const isDepartment = adminRole === "department";
   useDocumentTitle(isDepartment ? "Tra cứu Lớp học" : "Quản lý Lớp học & Lịch học");
 
-  const { classes: storeClasses, addClass, updateClass } = useAppData();
+  const { classes: storeClasses, addClass, updateClass, advanceClassStatus, checkScheduleConflict } = useAppData();
+
+  const handleAdvanceStatus = (id: string) => {
+    const result = advanceClassStatus(id);
+    if (!result.ok) toast.error(result.error);
+    else {
+      const cls = storeClasses.find(c => c.id === id);
+      toast.success(`Cập nhật trạng thái lớp "${cls?.courseName}" thành công.`);
+    }
+  };
 
   // Map AppClass → CenterClass for this component's UI
   const classes = useMemo<CenterClass[]>(() => storeClasses.map(c => {
@@ -381,6 +390,28 @@ export function AdminClasses() {
                            </div>
                            <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
                         </button>
+                        {/* [B] Advance class status button */}
+                        {(selectedClass.status === "recruiting" || selectedClass.status === "active") && (
+                          <button
+                            onClick={() => { handleAdvanceStatus(selectedClass.id); setSelectedClass(null); }}
+                            className="w-full flex items-center justify-between bg-white dark:bg-card p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-500/5 hover:shadow-md transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <UserCheck className="w-5 h-5"/>
+                              </div>
+                              <div className="text-left">
+                                <div className="font-black text-[15px] text-emerald-700 dark:text-emerald-400">
+                                  {selectedClass.status === "recruiting" ? "Khai giảng" : "Bế giảng"}
+                                </div>
+                                <div className="text-[12px] font-bold text-muted-foreground">
+                                  {selectedClass.status === "recruiting" ? "Tuyển sinh → Đang học" : "Hoạt động → Kết thúc"}
+                                </div>
+                              </div>
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-emerald-300 group-hover:text-emerald-600 transition-colors" />
+                          </button>
+                        )}
                      </div>
                   )}
                </div>
