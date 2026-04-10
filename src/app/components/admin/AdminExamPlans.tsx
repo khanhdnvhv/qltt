@@ -23,7 +23,7 @@ interface ExamPlan {
   duration: number;
   totalCandidates: number;
   rooms: number;
-  status: "draft" | "approved" | "ongoing" | "done" | "cancelled";
+  status: "draft" | "submitted" | "approved" | "ongoing" | "done" | "cancelled";
   createdAt: string;
   note: string;
 }
@@ -40,15 +40,16 @@ const initialPlans: ExamPlan[] = [
 ];
 
 const statusCfg = {
-  draft: { label: "Bản nháp", bg: "bg-gray-100 dark:bg-white/5", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-400", icon: FileText },
-  approved: { label: "Đã phê duyệt", bg: "bg-blue-50 dark:bg-blue-500/10", text: "text-blue-700 dark:text-blue-400", dot: "bg-blue-500", icon: CheckCircle },
-  ongoing: { label: "Đang diễn ra", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", icon: PlayCircle },
-  done: { label: "Đã kết thúc", bg: "bg-violet-50 dark:bg-violet-500/10", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500", icon: CheckSquare },
-  cancelled: { label: "Đã hủy", bg: "bg-rose-50 dark:bg-rose-500/10", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500", icon: X },
+  draft:     { label: "Bản nháp",        bg: "bg-gray-100 dark:bg-white/5",        text: "text-gray-600 dark:text-gray-400",   dot: "bg-gray-400",   icon: FileText   },
+  submitted: { label: "Chờ phê duyệt",   bg: "bg-amber-50 dark:bg-amber-500/10",   text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500",  icon: Clock      },
+  approved:  { label: "Đã phê duyệt",    bg: "bg-blue-50 dark:bg-blue-500/10",     text: "text-blue-700 dark:text-blue-400",   dot: "bg-blue-500",   icon: CheckCircle },
+  ongoing:   { label: "Đang diễn ra",    bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", icon: PlayCircle },
+  done:      { label: "Đã kết thúc",     bg: "bg-violet-50 dark:bg-violet-500/10", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500", icon: CheckSquare },
+  cancelled: { label: "Đã hủy",          bg: "bg-rose-50 dark:bg-rose-500/10",     text: "text-rose-700 dark:text-rose-400",   dot: "bg-rose-500",   icon: X          },
 };
 
 const examTypes = ["Tất cả", "Kết thúc khóa", "Giữa kỳ", "Sát hạch cấp chứng chỉ"];
-const statusList = ["all", "draft", "approved", "ongoing", "done", "cancelled"];
+const statusList = ["all", "draft", "submitted", "approved", "ongoing", "done", "cancelled"];
 
 export function AdminExamPlans() {
   useDocumentTitle("Kế hoạch Thi");
@@ -105,9 +106,19 @@ export function AdminExamPlans() {
     toast.success("Đã tạo kế hoạch thi mới");
   };
 
+  const handleSubmitForApproval = (id: string) => {
+    setPlans(prev => prev.map(p => p.id === id ? { ...p, status: "submitted" as const } : p));
+    toast.success("Đã gửi kế hoạch thi để phê duyệt");
+  };
+
   const handleApprove = (id: string) => {
     setPlans(prev => prev.map(p => p.id === id ? { ...p, status: "approved" as const } : p));
     toast.success("Kế hoạch thi đã được phê duyệt");
+  };
+
+  const handleReject = (id: string) => {
+    setPlans(prev => prev.map(p => p.id === id ? { ...p, status: "draft" as const } : p));
+    toast.info("Kế hoạch thi đã trả về bản nháp");
   };
 
   const handleDelete = (id: string) => {
@@ -219,8 +230,14 @@ export function AdminExamPlans() {
                         <button onClick={() => setDetailId(plan.id)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors" title="Xem chi tiết"><Eye className="w-4 h-4 text-muted-foreground" /></button>
                         {plan.status === "draft" && (
                           <>
-                            <button onClick={() => handleApprove(plan.id)} className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors" title="Phê duyệt"><CheckCircle className="w-4 h-4 text-blue-500" /></button>
+                            <button onClick={() => handleSubmitForApproval(plan.id)} className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors" title="Gửi phê duyệt"><ChevronRight className="w-4 h-4 text-amber-500" /></button>
                             <button onClick={() => setDeleteId(plan.id)} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors" title="Xóa"><Trash2 className="w-4 h-4 text-rose-500" /></button>
+                          </>
+                        )}
+                        {plan.status === "submitted" && (
+                          <>
+                            <button onClick={() => handleApprove(plan.id)} className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors" title="Phê duyệt"><CheckCircle className="w-4 h-4 text-blue-500" /></button>
+                            <button onClick={() => handleReject(plan.id)} className="p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" title="Trả về nháp"><X className="w-4 h-4 text-gray-500" /></button>
                           </>
                         )}
                       </div>
@@ -277,9 +294,19 @@ export function AdminExamPlans() {
                   </div>
                 )}
                 {detail.status === "draft" && (
-                  <button onClick={() => { handleApprove(detail.id); setDetailId(null); }} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-[14px] transition-colors flex items-center justify-center gap-2">
-                    <CheckCircle className="w-4 h-4" /> Phê duyệt kế hoạch
+                  <button onClick={() => { handleSubmitForApproval(detail.id); setDetailId(null); }} className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-[14px] transition-colors flex items-center justify-center gap-2">
+                    <ChevronRight className="w-4 h-4" /> Gửi duyệt kế hoạch
                   </button>
+                )}
+                {detail.status === "submitted" && (
+                  <div className="flex gap-3">
+                    <button onClick={() => { handleReject(detail.id); setDetailId(null); }} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-foreground rounded-xl font-semibold text-[14px] transition-colors">
+                      Trả về nháp
+                    </button>
+                    <button onClick={() => { handleApprove(detail.id); setDetailId(null); }} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-[14px] transition-colors flex items-center justify-center gap-2">
+                      <CheckCircle className="w-4 h-4" /> Phê duyệt
+                    </button>
+                  </div>
                 )}
               </div>
             </motion.div>

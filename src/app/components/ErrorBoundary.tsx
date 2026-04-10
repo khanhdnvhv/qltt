@@ -53,17 +53,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
 
             <h1 className="text-[24px] text-[#1a1a2e] dark:text-white mb-2" style={{ fontWeight: 800 }}>
-              Oops! Co loi xay ra
+              Oops! Có lỗi xảy ra
             </h1>
             <p className="text-[16px] text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
-              Ung dung gap loi khong mong muon. Vui long thu lai hoac quay ve trang chu.
+              Ứng dụng gặp lỗi không mong muốn. Vui lòng thử lại hoặc quay về trang chủ.
             </p>
 
             {this.state.error && (
               <div className="bg-red-50 dark:bg-red-500/5 border border-red-200/50 dark:border-red-500/20 rounded-xl p-4 mb-6 text-left">
                 <div className="flex items-center gap-2 mb-2">
                   <Bug className="w-4 h-4 text-red-500" />
-                  <span className="text-[16px] text-red-600 dark:text-red-400" style={{ fontWeight: 600 }}>Chi tiet loi</span>
+                  <span className="text-[16px] text-red-600 dark:text-red-400" style={{ fontWeight: 600 }}>Chi tiết lỗi</span>
                 </div>
                 <p className="text-[16px] text-red-600/80 dark:text-red-400/80 font-mono break-all">
                   {this.state.error.message}
@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 style={{ fontWeight: 600 }}
               >
                 <RefreshCw className="w-4 h-4" />
-                Thu lai
+                Thử lại
               </button>
               <button
                 onClick={this.handleGoHome}
@@ -86,12 +86,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 style={{ fontWeight: 600 }}
               >
                 <Home className="w-4 h-4" />
-                Trang chu
+                Trang chủ
               </button>
             </div>
 
             <p className="text-[15px] text-gray-400 dark:text-gray-500 mt-8">
-              Neu loi tiep tuc xay ra, vui long lien he{" "}
+              Nếu lỗi tiếp tục xảy ra, vui lòng liên hệ{" "}
               <a href="mailto:support@ieltspro.vn" className="text-[#dc2f3c] hover:underline">
                 support@ieltspro.vn
               </a>

@@ -1,6 +1,8 @@
 import { useDocumentTitle } from "../../utils/hooks";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BookOpen, Users, Clock, Calendar, ChevronRight, CheckCircle, Play, FileText, Download, X } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
+import { useAppData } from "../../context/AppDataContext";
 
 type CourseStatus = "active" | "done" | "reserved";
 
@@ -34,38 +36,42 @@ const statusCfg: Record<CourseStatus, { label: string; bg: string; text: string;
   reserved: { label: "Đang bảo lưu",bg: "bg-amber-100 dark:bg-amber-500/20",   text: "text-amber-700 dark:text-amber-400",    dot: "bg-amber-500"                },
 };
 
-const mockCourses: MyCourse[] = [
-  {
-    id: "C01", name: "Tiếng Anh B1 VSTEP Cấp tốc", code: "TAVSTEP-01",
-    teacher: "GV. Nguyễn Thị Lan", schedule: "T2T4T6 18:00-20:30", room: "Phòng A101",
-    startDate: "06/01/2026", endDate: "30/06/2026", status: "active",
-    progress: 68, completedLessons: 17, totalLessons: 25, attendanceRate: 94,
-    lessons: [
-      { title: "Unit 1 – Greetings & Introductions", date: "06/01/2026", done: true, hasHandout: true },
-      { title: "Unit 2 – Family & Daily Life", date: "09/01/2026", done: true, hasHandout: true },
-      { title: "Unit 3 – Health & Lifestyle", date: "13/01/2026", done: true, hasHandout: true },
-      { title: "Kiểm tra giữa kỳ", date: "01/02/2026", done: true, hasHandout: false },
-      { title: "Unit 4 – Work & Career", date: "10/03/2026", done: true, hasHandout: true },
-      { title: "Unit 5 – Environment & Nature", date: "24/03/2026", done: true, hasHandout: true },
-      { title: "Unit 6 – Travel & Tourism", date: "07/04/2026", done: true, hasHandout: true },
-      { title: "Unit 7 – Technology & Innovation", date: "13/04/2026", done: false, hasHandout: false },
-      { title: "Unit 8 – Culture & Society", date: "17/04/2026", done: false, hasHandout: false },
-    ],
-  },
-  {
-    id: "C02", name: "Giao tiếp Tiếng Anh Cơ bản", code: "EAGTCB-01",
-    teacher: "GV. Trần Minh Tuấn", schedule: "T2T4T6 Sáng 8:00-10:00", room: "Phòng A102",
-    startDate: "01/07/2025", endDate: "15/12/2025", status: "done",
-    progress: 100, completedLessons: 30, totalLessons: 30, attendanceRate: 87,
-    lessons: [
-      { title: "Toàn bộ 30 buổi đã hoàn thành", date: "15/12/2025", done: true, hasHandout: true },
-    ],
-  },
-];
+function buildLessons(completed: number, total: number): CourseLesson[] {
+  return Array.from({ length: total }, (_, i) => ({
+    title: `Buổi ${i + 1}`,
+    date: "",
+    done: i < completed,
+    hasHandout: i < completed,
+  }));
+}
 
 export function StudentMyCourses() {
   useDocumentTitle("Khóa học của tôi");
+  const { user } = useAuth();
+  const { getStudentByUserId, getEnrollmentsByStudentId } = useAppData();
   const [selected, setSelected] = useState<MyCourse | null>(null);
+
+  const student = useMemo(() => user ? getStudentByUserId(user.id) : undefined, [user, getStudentByUserId]);
+
+  const mockCourses = useMemo((): MyCourse[] => {
+    if (!student) return [];
+    return getEnrollmentsByStudentId(student.id).map(e => ({
+      id: e.id,
+      name: e.courseName,
+      code: e.classCode,
+      teacher: e.teacherName,
+      schedule: e.schedule,
+      room: e.room,
+      startDate: e.startDate,
+      endDate: e.endDate,
+      status: e.status === "active" ? "active" : e.status === "graduated" ? "done" : "reserved",
+      progress: e.progress,
+      completedLessons: e.completedLessons,
+      totalLessons: e.totalLessons,
+      attendanceRate: e.attendanceRate,
+      lessons: buildLessons(e.completedLessons, e.totalLessons),
+    }));
+  }, [student, getEnrollmentsByStudentId]);
 
   return (
     <div className="pb-10">

@@ -237,6 +237,15 @@ export const router = createBrowserRouter([
         path: "teacher/tests",
         lazy: () => import("./components/admin/TeacherTests").then((m) => ({ Component: m.TeacherTests })),
       },
+      // ── Cert stock + Inspections ────────────────────────────────
+      {
+        path: "cert-stock",
+        lazy: () => import("./components/admin/AdminCertStock").then((m) => ({ Component: m.AdminCertStock })),
+      },
+      {
+        path: "inspections",
+        lazy: () => import("./components/admin/AdminInspections").then((m) => ({ Component: m.AdminInspections })),
+      },
       // ── Student portal ───────────────────────────────────────────
       {
         path: "student/schedule",

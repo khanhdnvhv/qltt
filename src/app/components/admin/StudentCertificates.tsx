@@ -1,7 +1,9 @@
 import { useDocumentTitle } from "../../utils/hooks";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Award, Download, Eye, Calendar, CheckCircle, Clock, X, Shield, Star } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../auth/AuthContext";
+import { useAppData } from "../../context/AppDataContext";
 
 type CertStatus = "issued" | "pending" | "processing";
 
@@ -26,30 +28,31 @@ const statusCfg: Record<CertStatus, { label: string; bg: string; text: string; d
   processing: { label: "Đang xử lý",     bg: "bg-blue-100 dark:bg-blue-500/20",      text: "text-blue-700 dark:text-blue-400",      dot: "bg-blue-500 animate-pulse"   },
 };
 
-const mockCerts: Certificate[] = [
-  {
-    id: "C01", name: "Chứng chỉ Tiếng Anh B1 VSTEP",
-    course: "Tiếng Anh B1 VSTEP Cấp tốc", issuedBy: "Trung tâm GDNN-GDTX Quận 10",
-    issuedDate: null, expiryDate: null, certNumber: null,
-    status: "pending", level: "B1", score: 6.75, rank: "Khá", downloadable: false,
-  },
-  {
-    id: "C02", name: "Chứng nhận Hoàn thành Khóa học Tiếng Anh Giao tiếp",
-    course: "Giao tiếp Tiếng Anh Cơ bản", issuedBy: "Trung tâm GDNN-GDTX Quận 10",
-    issuedDate: "20/12/2025", expiryDate: null, certNumber: "TT10-2025-0318",
-    status: "issued", level: "Cơ bản", score: 8.1, rank: "Giỏi", downloadable: true,
-  },
-  {
-    id: "C03", name: "Chứng nhận Tham dự Hội thảo Kỹ năng Học tập",
-    course: "Hội thảo kỹ năng", issuedBy: "Trung tâm GDNN-GDTX Quận 10",
-    issuedDate: "15/11/2025", expiryDate: null, certNumber: "TT10-2025-HT-042",
-    status: "issued", level: "—", score: null, rank: null, downloadable: true,
-  },
-];
-
 export function StudentCertificates() {
   useDocumentTitle("Chứng chỉ & Văn bằng");
+  const { user } = useAuth();
+  const { getStudentByUserId, getCertificatesByStudentId } = useAppData();
   const [preview, setPreview] = useState<Certificate | null>(null);
+
+  const student = useMemo(() => user ? getStudentByUserId(user.id) : undefined, [user, getStudentByUserId]);
+
+  const mockCerts = useMemo((): Certificate[] => {
+    if (!student) return [];
+    return getCertificatesByStudentId(student.id).map(c => ({
+      id: c.id,
+      name: c.certType,
+      course: c.courseName,
+      issuedBy: c.issuedBy,
+      issuedDate: c.issuedDate,
+      expiryDate: c.expiryDate,
+      certNumber: c.serialNo,
+      status: c.status === "ISSUED" ? "issued" : c.status === "PRINTED" ? "processing" : "pending",
+      level: c.level,
+      score: c.score,
+      rank: c.rank,
+      downloadable: c.status === "ISSUED",
+    }));
+  }, [student, getCertificatesByStudentId]);
 
   const issued = mockCerts.filter(c => c.status === "issued").length;
   const pending = mockCerts.filter(c => c.status !== "issued").length;
@@ -185,8 +188,8 @@ export function StudentCertificates() {
                 <Award className="w-12 h-12 text-amber-500 mx-auto mb-3" />
                 <p className="text-[12px] text-muted-foreground uppercase tracking-widest mb-1">{preview.issuedBy}</p>
                 <p className="text-[11px] text-muted-foreground mb-4">Xác nhận rằng</p>
-                <p className="text-[20px] font-extrabold text-[#1a1a2e] dark:text-foreground mb-1">Nguyễn Trung Tín</p>
-                <p className="text-[12px] text-muted-foreground mb-4">HV-26-0001</p>
+                <p className="text-[20px] font-extrabold text-[#1a1a2e] dark:text-foreground mb-1">{student?.name ?? user?.fullName}</p>
+                <p className="text-[12px] text-muted-foreground mb-4">{student?.code ?? ""}</p>
                 <p className="text-[14px] text-muted-foreground mb-1">đã hoàn thành</p>
                 <p className="text-[18px] font-bold text-orange-600 mb-1">{preview.name}</p>
                 {preview.score && <p className="text-[14px] text-muted-foreground">Điểm: <strong className="text-orange-500">{preview.score}</strong> — Xếp loại: <strong>{preview.rank}</strong></p>}

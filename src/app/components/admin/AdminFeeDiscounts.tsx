@@ -3,50 +3,7 @@ import { useDocumentTitle, useEscapeKey } from "../../utils/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import { Search, Plus, X, Gift, Users, Percent, CheckCircle, Trash2, Eye, Edit2 } from "lucide-react";
 import { toast } from "sonner";
-
-interface DiscountPolicy {
-  id: string;
-  code: string;
-  name: string;
-  type: "Diện chính sách" | "Học sinh giỏi" | "Anh/chị/em" | "Đặc biệt" | "Nhân viên";
-  discountType: "percent" | "fixed";
-  discountValue: number;
-  appliedCount: number;
-  maxApply: number | null;
-  validFrom: string;
-  validTo: string | null;
-  conditions: string;
-  status: "active" | "inactive" | "expired";
-}
-
-interface DiscountApplication {
-  id: string;
-  studentName: string;
-  studentCode: string;
-  policyName: string;
-  originalAmount: number;
-  discountAmount: number;
-  finalAmount: number;
-  approvedBy: string;
-  date: string;
-}
-
-const policies: DiscountPolicy[] = [
-  { id: "1", code: "MG-001", name: "Miễn giảm Diện chính sách", type: "Diện chính sách", discountType: "percent", discountValue: 50, appliedCount: 12, maxApply: null, validFrom: "01/01/2026", validTo: null, conditions: "Học sinh hộ nghèo, cận nghèo có xác nhận địa phương", status: "active" },
-  { id: "2", code: "MG-002", name: "Ưu đãi Học sinh Giỏi", type: "Học sinh giỏi", discountType: "percent", discountValue: 20, appliedCount: 8, maxApply: 20, validFrom: "01/01/2026", validTo: "31/12/2026", conditions: "Điểm trung bình >= 8.0 kỳ trước hoặc giấy khen cấp quận/huyện trở lên", status: "active" },
-  { id: "3", code: "MG-003", name: "Giảm giá Anh/Chị/Em cùng học", type: "Anh/chị/em", discountType: "percent", discountValue: 15, appliedCount: 6, maxApply: null, validFrom: "01/01/2026", validTo: null, conditions: "Từ 2 anh/chị/em cùng đăng ký học tại trung tâm trong cùng kỳ", status: "active" },
-  { id: "4", code: "MG-004", name: "Giảm học phí Nhân viên", type: "Nhân viên", discountType: "percent", discountValue: 100, appliedCount: 3, maxApply: 10, validFrom: "01/01/2026", validTo: null, conditions: "Nhân viên chính thức của trung tâm", status: "active" },
-  { id: "5", code: "MG-005", name: "Ưu đãi Khai trương Khóa mới", type: "Đặc biệt", discountType: "fixed", discountValue: 500000, appliedCount: 15, maxApply: 30, validFrom: "01/03/2026", validTo: "31/03/2026", conditions: "Đăng ký trong tháng 3/2026 cho khóa Lập trình Web", status: "active" },
-  { id: "6", code: "MG-006", name: "Học sinh Xuất sắc 2025", type: "Học sinh giỏi", discountType: "percent", discountValue: 30, appliedCount: 5, maxApply: 10, validFrom: "01/01/2025", validTo: "31/12/2025", conditions: "Top 3 điểm cao nhất của khóa 2025", status: "expired" },
-];
-
-const applications: DiscountApplication[] = [
-  { id: "1", studentName: "Nguyễn Trung Tín", studentCode: "HV-26-0001", policyName: "Ưu đãi Học sinh Giỏi", originalAmount: 3500000, discountAmount: 700000, finalAmount: 2800000, approvedBy: "Nguyễn Thị Thanh", date: "08/01/2026" },
-  { id: "2", studentName: "Lý Gia Hân", studentCode: "HV-26-0003", policyName: "Miễn giảm Diện chính sách", originalAmount: 2800000, discountAmount: 1400000, finalAmount: 1400000, approvedBy: "Nguyễn Thị Thanh", date: "10/01/2026" },
-  { id: "3", studentName: "Trần Mai Anh", studentCode: "HV-26-0002", policyName: "Giảm giá Anh/Chị/Em cùng học", originalAmount: 3500000, discountAmount: 525000, finalAmount: 2975000, approvedBy: "Phạm Văn Hùng", date: "12/01/2026" },
-  { id: "4", studentName: "Hoàng Thanh Thảo", studentCode: "HV-25-0992", policyName: "Giảm học phí Nhân viên", originalAmount: 4800000, discountAmount: 4800000, finalAmount: 0, approvedBy: "Giám đốc TT", date: "15/01/2026" },
-  { id: "5", studentName: "Lê Minh Trí", studentCode: "HV-26-0012", policyName: "Ưu đãi Khai trương Khóa mới", originalAmount: 8500000, discountAmount: 500000, finalAmount: 8000000, approvedBy: "Nguyễn Thị Thanh", date: "10/03/2026" },
-];
+import { useAppData, type AppFeeDiscountPolicy as DiscountPolicy, type AppFeeDiscountApplication as DiscountApplication } from "../../context/AppDataContext";
 
 const statusCfg = {
   active: { label: "Đang áp dụng", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-400" },
@@ -66,12 +23,12 @@ const fmt = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
 export function AdminFeeDiscounts() {
   useDocumentTitle("Miễn giảm Học phí");
+  const { feeDiscountPolicies: data, feeDiscountApplications: applications, addFeeDiscountPolicy, updateFeeDiscountPolicy } = useAppData();
   const [activeTab, setActiveTab] = useState<"policies" | "applications">("policies");
-  const [data, setData] = useState<DiscountPolicy[]>(policies);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "Diện chính sách" as DiscountPolicy["type"], discountType: "percent" as "percent" | "fixed", discountValue: 0, conditions: "", validFrom: "", validTo: "" });
+  const [form, setForm] = useState({ name: "", type: "Diện chính sách" as DiscountPolicy["type"], discountType: "percent" as "percent" | "fixed", discountValue: 0, conditions: "", validFrom: "", validTo: "", maxApply: null as number | null });
 
   useEscapeKey(() => { setAddOpen(false); setDetailId(null); }, addOpen || !!detailId);
 
@@ -87,8 +44,7 @@ export function AdminFeeDiscounts() {
 
   const handleAdd = () => {
     if (!form.name || !form.validFrom) { toast.error("Vui lòng điền đầy đủ"); return; }
-    const newItem: DiscountPolicy = { id: String(data.length + 1), code: `MG-${String(data.length + 1).padStart(3, "0")}`, appliedCount: 0, maxApply: null, validTo: form.validTo || null, status: "active", ...form };
-    setData(prev => [newItem, ...prev]);
+    addFeeDiscountPolicy({ ...form, validTo: form.validTo || null, status: "active" });
     setAddOpen(false);
     toast.success("Đã tạo chính sách miễn giảm");
   };

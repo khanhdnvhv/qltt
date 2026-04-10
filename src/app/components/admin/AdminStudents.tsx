@@ -2,38 +2,18 @@ import { useState, useMemo } from "react";
 import { useDocumentTitle } from "../../utils/hooks";
 import { useOutletContext } from "react-router";
 import {
-  Search, Plus, MapPin, Phone, Activity, Clock, Ban, Save, X, Eye, 
-  GraduationCap, Mail, Sparkles, LayoutGrid, List, Calendar, TrendingUp, BookOpen, AlertCircle
+  Search, Plus, MapPin, Phone, Activity, Clock, Ban, X, Eye,
+  GraduationCap, Mail, Sparkles, LayoutGrid, List, Calendar, TrendingUp, BookOpen, AlertCircle, Download, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { useUrlFilters } from "../../utils/useUrlFilters";
+import { useAppData, type AppStudent } from "../../context/AppDataContext";
 
 type Status = "learning" | "suspended" | "dropped" | "graduated";
 
-interface MockStudent {
-  id: string;
-  code: string;
-  name: string;
-  dob: string;
-  email: string;
-  phone: string;
-  status: Status;
-  programs: string[];
-  avatarColor: string;
-  progress: number;
-}
-
-const initialStudents: MockStudent[] = [
-  { id: "S001", code: "HV-26-0001", name: "Nguyễn Trung Tín", dob: "15/04/2005", email: "tin.nguyen@example.com", phone: "0901234567", status: "learning", programs: ["Tiếng Anh B1 VSTEP", "Tin học Cơ bản"], avatarColor: "from-blue-600 to-indigo-600", progress: 68 },
-  { id: "S002", code: "HV-26-0002", name: "Trần Mai Anh", dob: "22/08/2007", email: "anh.tran@example.com", phone: "0912345678", status: "learning", programs: ["Lớp 10 GDTX"], avatarColor: "from-pink-500 to-rose-500", progress: 35 },
-  { id: "S003", code: "HV-26-0003", name: "Lý Gia Hân", dob: "11/11/2006", email: "han.ly@example.com", phone: "0923456789", status: "suspended", programs: ["Kỹ thuật Nấu ăn 3 Tháng"], avatarColor: "from-amber-500 to-orange-500", progress: 12 },
-  { id: "S004", code: "HV-26-0004", name: "Phạm Bình Minh", dob: "30/01/2003", email: "minh.pham@example.com", phone: "0934567890", status: "dropped", programs: ["Hàn Điện Cơ bản"], avatarColor: "from-red-500 to-rose-600", progress: 50 },
-  { id: "S005", code: "HV-25-0992", name: "Hoàng Thanh Thảo", dob: "05/09/2001", email: "thao.hoang@example.com", phone: "0945678901", status: "graduated", programs: ["Tiếng Anh TOEIC Cấp tốc"], avatarColor: "from-emerald-500 to-teal-500", progress: 100 },
-  { id: "S006", code: "HV-26-0012", name: "Lê Minh Trí", dob: "19/02/2004", email: "tri.le@example.com", phone: "0956789012", status: "learning", programs: ["Lập trình Web Frontend", "Tiếng Nhật N4"], avatarColor: "from-cyan-500 to-blue-500", progress: 82 },
-  { id: "S007", code: "HV-26-0015", name: "Đỗ Xuân Trường", dob: "10/10/2006", email: "truong.do@example.com", phone: "0967890123", status: "learning", programs: ["Thiết kế Đồ họa Cơ bản"], avatarColor: "from-violet-500 to-purple-600", progress: 24 },
-  { id: "S008", code: "HV-25-0811", name: "Vũ Ngọc Trâm", dob: "04/07/2002", email: "tram.vu@example.com", phone: "0978901234", status: "graduated", programs: ["Kế toán Thực hành"], avatarColor: "from-teal-400 to-emerald-500", progress: 100 },
-];
+// Alias để tương thích với phần còn lại của component
+type MockStudent = AppStudent;
 
 const statusStyles: Record<Status, { label: string, badgeBg: string, badgeText: string, icon: any, dot: string, heroBg: string }> = {
   learning: { label: "Đang học", badgeBg: "bg-blue-500/10 dark:bg-blue-500/20", badgeText: "text-blue-700 dark:text-blue-400", dot: "bg-blue-500", icon: Activity, heroBg: "from-blue-50 to-indigo-50/50 dark:from-blue-900/20 dark:to-background" },
@@ -47,7 +27,7 @@ export function AdminStudents() {
   const isDepartment = adminRole === "department";
   useDocumentTitle(isDepartment ? "Tra cứu Học viên" : "Hồ sơ Học viên");
 
-  const [students] = useState<MockStudent[]>(initialStudents);
+  const { students, addStudent, updateStudentStatus } = useAppData();
   const [search, setSearch] = useState("");
   const [filters, setFilter] = useUrlFilters({ status: "all" });
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -57,6 +37,33 @@ export function AdminStudents() {
   const [activeDrawerTab, setActiveDrawerTab] = useState<"info" | "programs" | "history">("info");
   
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [newForm, setNewForm] = useState({ name: "", phone: "", email: "", program: "Tiếng Anh B1 VSTEP" });
+  const avatarColors = ["from-blue-600 to-indigo-600","from-pink-500 to-rose-500","from-amber-500 to-orange-500","from-cyan-500 to-blue-500","from-violet-500 to-purple-600","from-teal-400 to-emerald-500"];
+
+  const kpiStats = useMemo(() => ({
+    total: students.length,
+    learning: students.filter(s => s.status === "learning").length,
+    suspended: students.filter(s => s.status === "suspended").length,
+    dropped: students.filter(s => s.status === "dropped").length,
+    graduated: students.filter(s => s.status === "graduated").length,
+  }), [students]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    await new Promise(r => setTimeout(r, 800)); // simulate export
+    const rows = [
+      ["Mã HV", "Họ tên", "Ngày sinh", "Điện thoại", "Email", "Trạng thái", "Khóa học", "Tiến độ (%)"],
+      ...filteredData.map(s => [s.code, s.name, s.dob, s.phone, s.email, statusStyles[s.status].label, s.programs.join("; "), s.progress]),
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `hoc-vien-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    setExporting(false);
+  };
 
   const filteredData = useMemo(() => students.filter(s => {
     const sMatch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.phone.includes(search) || s.code.toLowerCase().includes(search.toLowerCase());
@@ -87,17 +94,51 @@ export function AdminStudents() {
           </div>
           
           <div className="flex gap-3">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl text-[14px] font-semibold border border-white/20 transition-all disabled:opacity-70"
+            >
+              {exporting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+              Xuất CSV
+            </button>
              {!isDepartment && (
-                <button 
+                <button
                   onClick={() => setAddModalOpen(true)}
                   className="flex items-center justify-center gap-2.5 bg-white text-[#1a1a2e] px-6 py-3.5 rounded-2xl text-[15px] font-bold shadow-[0_8px_30px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all duration-300"
                 >
                   <Plus className="w-5 h-5" />
-                  Tiếp nhận Học viên 
+                  Tiếp nhận Học viên
                 </button>
              )}
           </div>
         </div>
+      </div>
+
+      {/* KPI Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Tổng học viên", value: kpiStats.total, icon: Users, color: "from-blue-500 to-indigo-600", bg: "from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20" },
+          { label: "Đang theo học", value: kpiStats.learning, icon: Activity, color: "from-emerald-500 to-teal-600", bg: "from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20" },
+          { label: "Bảo lưu", value: kpiStats.suspended, icon: Clock, color: "from-amber-500 to-orange-600", bg: "from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20" },
+          { label: "Tốt nghiệp", value: kpiStats.graduated, icon: GraduationCap, color: "from-purple-500 to-pink-600", bg: "from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20" },
+        ].map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.07 }}
+            className={`bg-gradient-to-br ${stat.bg} border border-gray-100 dark:border-white/5 rounded-2xl p-5 relative overflow-hidden`}
+          >
+            <div className={`absolute -top-4 -right-4 w-20 h-20 bg-gradient-to-br ${stat.color} rounded-full opacity-10`} />
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3 shadow-lg`}>
+              <stat.icon className="w-5 h-5 text-white" />
+            </div>
+            <p className="text-[13px] font-semibold text-muted-foreground mb-1">{stat.label}</p>
+            <p className="text-[28px] font-black text-[#1a1a2e] dark:text-foreground">{stat.value}</p>
+            <p className="text-[12px] text-muted-foreground mt-1">{Math.round(stat.value / kpiStats.total * 100)}% tổng số</p>
+          </motion.div>
+        ))}
       </div>
 
       {/* Futuristic Toolbar */}
@@ -424,19 +465,22 @@ export function AdminStudents() {
                <div className="p-8 pt-0 space-y-5">
                   <div>
                     <label className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Thông tin cơ bản</label>
-                    <input placeholder="Họ và tên trên CCCD..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-bold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground" />
+                    <input value={newForm.name} onChange={e => setNewForm(f => ({...f, name: e.target.value}))} placeholder="Họ và tên trên CCCD..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-bold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                     <input placeholder="Số điện thoại..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-semibold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 text-foreground" />
-                     <input placeholder="Email liên hệ..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-semibold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 text-foreground" />
+                     <input value={newForm.phone} onChange={e => setNewForm(f => ({...f, phone: e.target.value}))} placeholder="Số điện thoại..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-semibold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 text-foreground" />
+                     <input value={newForm.email} onChange={e => setNewForm(f => ({...f, email: e.target.value}))} placeholder="Email liên hệ..." className="w-full bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-semibold text-[15px] outline-none focus:ring-2 focus:ring-primary/50 text-foreground" />
                   </div>
                   <div>
                     <label className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider mt-2 mb-2 block">Chương trình Ghi danh</label>
                     <div className="relative">
-                      <select className="w-full appearance-none bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-bold text-[15px] text-foreground outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
-                        <option>Chọn chương trình khai giảng gần nhất...</option>
-                        <option>Tin học Cơ bản Chuẩn QG</option>
-                        <option>Tiếng Anh B1 VSTEP</option>
+                      <select value={newForm.program} onChange={e => setNewForm(f => ({...f, program: e.target.value}))} className="w-full appearance-none bg-[#f4f5f7] dark:bg-white/5 border-none px-5 py-4 rounded-2xl font-bold text-[15px] text-foreground outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
+                        <option value="Tiếng Anh B1 VSTEP">Tiếng Anh B1 VSTEP</option>
+                        <option value="Tin học Cơ bản Chuẩn QG">Tin học Cơ bản Chuẩn QG</option>
+                        <option value="Kỹ thuật Hàn Điện Cơ bản">Kỹ thuật Hàn Điện Cơ bản</option>
+                        <option value="Luyện thi TOEIC 450+">Luyện thi TOEIC 450+</option>
+                        <option value="Tiếng Nhật JLPT N4">Tiếng Nhật JLPT N4</option>
+                        <option value="Lớp 10 GDTX">Lớp 10 GDTX</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-muted-foreground">
                         <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
@@ -446,9 +490,22 @@ export function AdminStudents() {
                </div>
 
                <div className="p-6 bg-[#f4f5f7]/50 dark:bg-white/5 flex gap-3 border-t border-gray-100 dark:border-white/5">
-                 <button onClick={() => setAddModalOpen(false)} className="px-6 py-4 font-bold text-muted-foreground bg-transparent hover:bg-gray-200 dark:hover:bg-white/10 rounded-2xl transition-all flex-1">Hủy thao tác</button>
+                 <button onClick={() => { setAddModalOpen(false); setNewForm({ name: "", phone: "", email: "", program: "Tiếng Anh B1 VSTEP" }); }} className="px-6 py-4 font-bold text-muted-foreground bg-transparent hover:bg-gray-200 dark:hover:bg-white/10 rounded-2xl transition-all flex-1">Hủy thao tác</button>
                  <button onClick={() => {
+                   if (!newForm.name.trim()) { toast.error("Vui lòng nhập họ tên học viên"); return; }
+                   const seq = String(students.length + 1).padStart(4, "0");
+                   const year = new Date().getFullYear().toString().slice(-2);
+                   addStudent({
+                     code: `HV-${year}-${seq}`, name: newForm.name.trim(),
+                     phone: newForm.phone, email: newForm.email || `hv${seq}@example.com`,
+                     dob: "", gender: "Nam", address: "", idNumber: "",
+                     parentName: "", parentPhone: "",
+                     status: "learning", programs: [newForm.program],
+                     avatarColor: avatarColors[students.length % avatarColors.length],
+                     progress: 0, enrollDate: new Date().toLocaleDateString("vi-VN"),
+                   });
                    setAddModalOpen(false);
+                   setNewForm({ name: "", phone: "", email: "", program: "Tiếng Anh B1 VSTEP" });
                    toast.success("Tiếp nhận Hồ sơ thành công! Hệ thống đã gửi Email welcome.");
                  }} className="px-8 py-4 font-black text-white bg-primary rounded-2xl hover:bg-primary/90 hover:scale-[1.02] shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)] transition-all flex-[2]">Khởi tạo & Ghi danh</button>
                </div>

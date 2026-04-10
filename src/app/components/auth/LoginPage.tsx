@@ -56,12 +56,24 @@ export function LoginPage() {
     return "/admin"; // department, center
   };
 
+  const applyRememberMe = (remember: boolean) => {
+    if (!remember) {
+      // Move auth data from localStorage → sessionStorage so session ends on browser close
+      const authData = localStorage.getItem("ielts_pro_auth");
+      if (authData) {
+        sessionStorage.setItem("ielts_pro_auth", authData);
+        localStorage.removeItem("ielts_pro_auth");
+      }
+    }
+  };
+
   const handleSelectDemo = async (demoAccount: any) => {
     setError("");
     setLoading(true);
     const result = await login(demoAccount.email, demoAccount.password);
     setLoading(false);
     if (result.success) {
+      applyRememberMe(rememberMe);
       navigate(getDashboardPath(result.role || ""), { replace: true });
     } else {
       setError(result.error || "Đăng nhập thất bại");
@@ -79,6 +91,7 @@ export function LoginPage() {
     const result = await login(email, password);
     setLoading(false);
     if (result.success) {
+      applyRememberMe(rememberMe);
       navigate(getDashboardPath(result.role || ""), { replace: true });
     } else {
       setError(result.error || "Đăng nhập thất bại");

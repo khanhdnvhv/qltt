@@ -154,7 +154,7 @@ export function AdminUsers() {
         const rounded = Math.round(num * 2) / 2;
         const oldVal = u.bandScore?.toString() ?? "";
         pushEdit(rowKey, colKey, oldVal, String(rounded));
-        toast.success(`Đã cập nhật Band Score cua ${u.name} thanh ${rounded}`);
+        toast.success(`Đã cập nhật Band Score của ${u.name} thành ${rounded}`);
         return { ...u, bandScore: rounded };
       }
       if (colKey === "courses") {
@@ -173,13 +173,13 @@ export function AdminUsers() {
   }, [users, pushEdit]);
 
   const csvColumns = useMemo(() => [
-    { key: "name", header: "Ho ten" },
+    { key: "name", header: "Họ tên" },
     { key: "email", header: "Email" },
-    { key: "phone", header: "So dien thoai" },
+    { key: "phone", header: "Số điện thoại" },
     { key: "role", header: "Vai trò", format: (u: MockUser) => u.role === "student" ? "Học viên" : u.role === "teacher" ? "Giảng viên" : "Admin" },
     { key: "status", header: "Trạng thái", format: (u: MockUser) => u.status === "active" ? "Hoạt động" : u.status === "inactive" ? "Không hoạt động" : "Đã chặn" },
     { key: "bandScore", header: "Band Score", format: (u: MockUser) => u.bandScore?.toString() ?? "" },
-    { key: "coursesEnrolled", header: "So khóa học" },
+    { key: "coursesEnrolled", header: "Số khóa học" },
     { key: "joinedAt", header: "Ngày tham gia" },
   ], []);
 
@@ -526,7 +526,7 @@ export function AdminUsers() {
         onConfirm={() => {
           const num = parseFloat(bulkBandValue);
           if (isNaN(num) || num < 0 || num > 9) {
-            toast.error("ĐIểm Band Score phải từ 0 đến 9");
+            toast.error("Điểm Band Score phải từ 0 đến 9");
             return;
           }
           const rounded = Math.round(num * 2) / 2;
@@ -546,7 +546,7 @@ export function AdminUsers() {
           setSelectedUsers([]);
           toast.success(`Đã cập nhật Band Score = ${rounded} cho ${count} người dùng`, {
             action: {
-              label: "Hoan tac",
+              label: "Hoàn tác",
               onClick: () => {
                 setUsers((prev) => prev.map((u) => {
                   if (oldValues.has(u.id)) {
@@ -554,15 +554,15 @@ export function AdminUsers() {
                   }
                   return u;
                 }));
-                toast.info(`Da hoan tac Band Score cho ${count} người dùng`);
+                toast.info(`Đã hoàn tác Band Score cho ${count} người dùng`);
               },
             },
             duration: 8000,
           });
         }}
-        title={`Cap nhat Band Score (${selectedUsers.length} người dùng)`}
-        description="Nhap Band Score moi cho tat ca người dùng da chon (0-9, lam tron 0.5)."
-        confirmLabel="Ap dung"
+        title={`Cập nhật Band Score (${selectedUsers.length} người dùng)`}
+        description="Nhập Band Score mới cho tất cả người dùng đã chọn (0–9, làm tròn 0.5)."
+        confirmLabel="Áp dụng"
         variant="default"
       >
         <input

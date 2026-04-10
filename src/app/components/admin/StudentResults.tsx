@@ -1,6 +1,12 @@
 import { useDocumentTitle } from "../../utils/hooks";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Award, TrendingUp, CheckCircle, XCircle, Clock, Download, ChevronDown, BarChart2 } from "lucide-react";
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip as ReTooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from "recharts";
+import { useAuth } from "../auth/AuthContext";
+import { useAppData } from "../../context/AppDataContext";
 
 type ResultStatus = "pass" | "fail" | "pending";
 
@@ -40,44 +46,44 @@ const statusCfg: Record<ResultStatus, { label: string; bg: string; text: string;
   pending: { label: "Chờ kết quả",  bg: "bg-amber-100 dark:bg-amber-500/20",     text: "text-amber-700 dark:text-amber-400",     icon: Clock       },
 };
 
-const examResults: ExamResult[] = [
-  {
-    id: "E01", examName: "Kiểm tra giữa kỳ VSTEP B1", course: "Tiếng Anh B1 VSTEP",
-    examDate: "01/02/2026",
-    scores: { listening: 6.5, speaking: 7.0, reading: 6.0, writing: 5.5 },
-    totalScore: 6.25, passScore: 5.0, status: "pass", rank: "Trung bình khá", certificateReady: false,
-  },
-  {
-    id: "E02", examName: "Thi thử VSTEP B1 lần 1", course: "Tiếng Anh B1 VSTEP",
-    examDate: "15/03/2026",
-    scores: { listening: 7.0, speaking: 7.5, reading: 6.5, writing: 6.0 },
-    totalScore: 6.75, passScore: 5.0, status: "pass", rank: "Khá", certificateReady: false,
-  },
-  {
-    id: "E03", examName: "Kỳ thi VSTEP B1 chính thức", course: "Tiếng Anh B1 VSTEP",
-    examDate: "20/04/2026",
-    scores: { listening: null, speaking: null, reading: null, writing: null },
-    totalScore: null, passScore: 5.0, status: "pending", rank: null, certificateReady: false,
-  },
-];
-
-const quizResults: QuizResult[] = [
-  { id: "Q01", title: "Kiểm tra Unit 1", date: "12/01/2026", score: 18, maxScore: 20, duration: 25, status: "pass" },
-  { id: "Q02", title: "Kiểm tra Unit 2", date: "19/01/2026", score: 15, maxScore: 20, duration: 28, status: "pass" },
-  { id: "Q03", title: "Kiểm tra Unit 3", date: "26/01/2026", score: 12, maxScore: 20, duration: 30, status: "fail" },
-  { id: "Q04", title: "Kiểm tra Unit 3 (lần 2)", date: "02/02/2026", score: 16, maxScore: 20, duration: 29, status: "pass" },
-  { id: "Q05", title: "Luyện tập Ngữ pháp", date: "10/03/2026", score: 42, maxScore: 50, duration: 40, status: "pass" },
-  { id: "Q06", title: "Kiểm tra Unit 6", date: "30/03/2026", score: 19, maxScore: 20, duration: 22, status: "pass" },
-  { id: "Q07", title: "Kiểm tra Unit 7", date: "08/04/2026", score: 0, maxScore: 20, duration: 0, status: "pending" },
-];
-
 const skills = ["Nghe", "Nói", "Đọc", "Viết"] as const;
 const skillKeys: (keyof SkillScore)[] = ["listening", "speaking", "reading", "writing"];
 
 export function StudentResults() {
   useDocumentTitle("Kết quả học tập");
+  const { user } = useAuth();
+  const { getStudentByUserId, getExamResultsByStudentId } = useAppData();
   const [tab, setTab] = useState<"exam" | "quiz">("exam");
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const student = useMemo(() => user ? getStudentByUserId(user.id) : undefined, [user, getStudentByUserId]);
+
+  const examResults = useMemo((): ExamResult[] => {
+    if (!student) return [];
+    return getExamResultsByStudentId(student.id).map(r => ({
+      id: r.id,
+      examName: r.examPlanName,
+      course: r.subject,
+      examDate: r.examDate,
+      scores: { listening: r.listening ?? null, speaking: r.speaking ?? null, reading: r.reading ?? null, writing: r.writing ?? null },
+      totalScore: r.score,
+      passScore: r.passScore,
+      status: r.status as ResultStatus,
+      rank: r.status === "pass" ? (r.score && r.score >= 8 ? "Giỏi" : r.score && r.score >= 6.5 ? "Khá" : "Trung bình") : null,
+      certificateReady: false,
+    }));
+  }, [student, getExamResultsByStudentId]);
+
+  // Keep quiz results as static mock data (not stored)
+  const quizResults: QuizResult[] = [
+    { id: "Q01", title: "Kiểm tra Unit 1", date: "12/01/2026", score: 18, maxScore: 20, duration: 25, status: "pass" },
+    { id: "Q02", title: "Kiểm tra Unit 2", date: "19/01/2026", score: 15, maxScore: 20, duration: 28, status: "pass" },
+    { id: "Q03", title: "Kiểm tra Unit 3", date: "26/01/2026", score: 12, maxScore: 20, duration: 30, status: "fail" },
+    { id: "Q04", title: "Kiểm tra Unit 3 (lần 2)", date: "02/02/2026", score: 16, maxScore: 20, duration: 29, status: "pass" },
+    { id: "Q05", title: "Luyện tập Ngữ pháp", date: "10/03/2026", score: 42, maxScore: 50, duration: 40, status: "pass" },
+    { id: "Q06", title: "Kiểm tra Unit 6", date: "30/03/2026", score: 19, maxScore: 20, duration: 22, status: "pass" },
+    { id: "Q07", title: "Kiểm tra Unit 7", date: "08/04/2026", score: 0, maxScore: 20, duration: 0, status: "pending" },
+  ];
 
   const bestScore = examResults.filter(r => r.totalScore !== null).sort((a, b) => (b.totalScore ?? 0) - (a.totalScore ?? 0))[0];
   const passedExams = examResults.filter(r => r.status === "pass").length;
@@ -108,6 +114,55 @@ export function StudentResults() {
           </div>
         ))}
       </div>
+
+      {/* Skill radar chart — best scored exam */}
+      {bestScore && bestScore.scores.listening !== null && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* Radar */}
+          <div className="bg-white dark:bg-card border border-gray-100 dark:border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 className="w-5 h-5 text-orange-500"/>
+              <h3 className="text-[14px] font-bold text-[#1a1a2e] dark:text-foreground">Phân tích Kỹ năng (kỳ thi tốt nhất)</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <RadarChart data={[
+                { skill: "Nghe",    score: bestScore.scores.listening ?? 0 },
+                { skill: "Nói",     score: bestScore.scores.speaking  ?? 0 },
+                { skill: "Đọc",     score: bestScore.scores.reading   ?? 0 },
+                { skill: "Viết",    score: bestScore.scores.writing   ?? 0 },
+              ]}>
+                <PolarGrid stroke="rgba(0,0,0,0.08)"/>
+                <PolarAngleAxis dataKey="skill" tick={{ fontSize: 13, fontWeight: 600 }}/>
+                <Radar dataKey="score" stroke="#f97316" fill="#f97316" fillOpacity={0.2} strokeWidth={2}/>
+                <ReTooltip formatter={(v: number) => [v.toFixed(1) + "/10", "Điểm"]}/>
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Quiz progress bar chart */}
+          <div className="bg-white dark:bg-card border border-gray-100 dark:border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-orange-500"/>
+              <h3 className="text-[14px] font-bold text-[#1a1a2e] dark:text-foreground">Điểm Kiểm tra Định kỳ</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={quizResults.filter(q => q.status !== "pending").map(q => ({
+                  name: q.title.replace("Kiểm tra ", "").replace("Luyện tập ", ""),
+                  pct: Math.round((q.score / q.maxScore) * 100),
+                }))}
+                margin={{ top: 4, right: 8, left: -10, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false}/>
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} angle={-15} textAnchor="end" interval={0}/>
+                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => v + "%"}/>
+                <ReTooltip formatter={(v: number) => [v + "%", "Tỷ lệ đúng"]}/>
+                <Bar dataKey="pct" fill="#f97316" radius={[4, 4, 0, 0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">

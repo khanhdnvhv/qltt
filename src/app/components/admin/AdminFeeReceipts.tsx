@@ -9,43 +9,63 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Pagination } from "./Pagination";
+import { useAppData, type AppFeeReceipt } from "../../context/AppDataContext";
 
-interface FeeReceipt {
-  id: string;
-  receiptCode: string;
-  studentName: string;
-  studentCode: string;
-  periodName: string;
-  amount: number;
-  discountAmount: number;
-  finalAmount: number;
-  paymentMethod: "Tiền mặt" | "Chuyển khoản" | "Ví điện tử";
-  paidDate: string;
-  receivedBy: string;
-  note: string;
-  status: "confirmed" | "pending";
-}
-
-const receipts: FeeReceipt[] = [
-  { id: "1", receiptCode: "PT-26-0001", studentName: "Nguyễn Trung Tín", studentCode: "HV-26-0001", periodName: "Học phí Kỳ 1 - Tiếng Anh B1", amount: 3500000, discountAmount: 700000, finalAmount: 2800000, paymentMethod: "Chuyển khoản", paidDate: "08/01/2026", receivedBy: "Nguyễn Thị Thanh", note: "Giảm 20% học sinh giỏi", status: "confirmed" },
-  { id: "2", receiptCode: "PT-26-0002", studentName: "Trần Mai Anh", studentCode: "HV-26-0002", periodName: "Học phí Kỳ 1 - GDTX", amount: 1200000, discountAmount: 0, finalAmount: 1200000, paymentMethod: "Tiền mặt", paidDate: "09/01/2026", receivedBy: "Phạm Văn Hùng", note: "", status: "confirmed" },
-  { id: "3", receiptCode: "PT-26-0003", studentName: "Lý Gia Hân", studentCode: "HV-26-0003", periodName: "Học phí Kỳ 1 - Nấu ăn", amount: 3200000, discountAmount: 1600000, finalAmount: 1600000, paymentMethod: "Tiền mặt", paidDate: "10/01/2026", receivedBy: "Nguyễn Thị Thanh", note: "Diện hộ nghèo - giảm 50%", status: "confirmed" },
-  { id: "4", receiptCode: "PT-26-0004", studentName: "Phạm Bình Minh", studentCode: "HV-26-0004", periodName: "Học phí Kỳ 1 - Hàn Điện", amount: 3200000, discountAmount: 0, finalAmount: 3200000, paymentMethod: "Chuyển khoản", paidDate: "11/01/2026", receivedBy: "Nguyễn Thị Thanh", note: "", status: "confirmed" },
-  { id: "5", receiptCode: "PT-26-0005", studentName: "Hoàng Thanh Thảo", studentCode: "HV-25-0992", periodName: "Học phí Kỳ 1 - TOEIC", amount: 4200000, discountAmount: 4200000, finalAmount: 0, paymentMethod: "Chuyển khoản", paidDate: "11/01/2026", receivedBy: "Giám đốc TT", note: "Nhân viên - miễn 100%", status: "confirmed" },
-  { id: "6", receiptCode: "PT-26-0006", studentName: "Lê Minh Trí", studentCode: "HV-26-0012", periodName: "Học phí Kỳ 1 - Web Frontend", amount: 8500000, discountAmount: 500000, finalAmount: 8000000, paymentMethod: "Ví điện tử", paidDate: "12/03/2026", receivedBy: "Nguyễn Thị Thanh", note: "Ưu đãi khai trương", status: "confirmed" },
-  { id: "7", receiptCode: "PT-26-0007", studentName: "Đỗ Xuân Trường", studentCode: "HV-26-0015", periodName: "Học phí Kỳ 2 - Tiếng Anh B1", amount: 3500000, discountAmount: 0, finalAmount: 3500000, paymentMethod: "Tiền mặt", paidDate: "05/03/2026", receivedBy: "Phạm Văn Hùng", note: "", status: "confirmed" },
-  { id: "8", receiptCode: "PT-26-0008", studentName: "Vũ Ngọc Trâm", studentCode: "HV-25-0811", periodName: "Học phí Kỳ 2 - Kế toán", amount: 4500000, discountAmount: 675000, finalAmount: 3825000, paymentMethod: "Chuyển khoản", paidDate: "06/03/2026", receivedBy: "Nguyễn Thị Thanh", note: "Giảm 15% anh/chị/em", status: "confirmed" },
-  { id: "9", receiptCode: "PT-26-0009", studentName: "Nguyễn Xuân Phúc", studentCode: "HV-26-0021", periodName: "Học phí Kỳ 1 - Tiếng Nhật N4", amount: 4800000, discountAmount: 0, finalAmount: 4800000, paymentMethod: "Chuyển khoản", paidDate: "18/03/2026", receivedBy: "Nguyễn Thị Thanh", note: "", status: "pending" },
-  { id: "10", receiptCode: "PT-26-0010", studentName: "Đinh Thị Nhung", studentCode: "HV-26-0022", periodName: "Học phí Kỳ 1 - Tiếng Nhật N4", amount: 4800000, discountAmount: 0, finalAmount: 4800000, paymentMethod: "Tiền mặt", paidDate: "19/03/2026", receivedBy: "Phạm Văn Hùng", note: "", status: "pending" },
-];
+type FeeReceipt = AppFeeReceipt;
 
 const methodIcon = { "Tiền mặt": Banknote, "Chuyển khoản": CreditCard, "Ví điện tử": Smartphone };
 const methodColor = { "Tiền mặt": "text-emerald-600 bg-emerald-500/10", "Chuyển khoản": "text-blue-600 bg-blue-500/10", "Ví điện tử": "text-violet-600 bg-violet-500/10" };
 const fmt = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
+function genReceiptCode(existingCount: number): string {
+  const year = new Date().getFullYear();
+  const seq = String(existingCount + 1).padStart(5, "0");
+  return `BL-${year}-${seq}`;
+}
+
+function printReceipt(r: FeeReceipt) {
+  const win = window.open("", "_blank", "width=600,height=800");
+  if (!win) { toast.error("Vui lòng cho phép popup để in biên lai"); return; }
+  win.document.write(`
+    <!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Biên lai ${r.receiptCode}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; max-width: 500px; margin: auto; }
+      .header { text-align: center; margin-bottom: 24px; }
+      .title { font-size: 20px; font-weight: bold; margin: 8px 0; }
+      .code { font-family: monospace; font-size: 14px; color: #0d9488; font-weight: bold; }
+      .amount { text-align: center; font-size: 32px; font-weight: 900; color: #0d9488; padding: 16px 0; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; margin: 16px 0; }
+      .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+      .label { color: #666; }
+      .value { font-weight: 600; }
+      .footer { text-align: center; font-size: 12px; color: #999; margin-top: 24px; }
+      @media print { button { display: none; } }
+    </style></head><body>
+    <div class="header">
+      <div style="font-size:13px;color:#666;">TRUNG TÂM GDNN-GDTX</div>
+      <div class="title">BIÊN LAI THU TIỀN HỌC PHÍ</div>
+      <div class="code">${r.receiptCode}</div>
+    </div>
+    <div class="amount">${fmt(r.finalAmount)}</div>
+    <div class="row"><span class="label">Học viên</span><span class="value">${r.studentName}</span></div>
+    <div class="row"><span class="label">Mã học viên</span><span class="value">${r.studentCode}</span></div>
+    <div class="row"><span class="label">Đợt thu</span><span class="value">${r.periodName}</span></div>
+    <div class="row"><span class="label">Học phí gốc</span><span class="value">${fmt(r.amount)}</span></div>
+    ${r.discountAmount > 0 ? `<div class="row"><span class="label">Giảm giá</span><span class="value" style="color:#ef4444;">-${fmt(r.discountAmount)}</span></div>` : ""}
+    <div class="row"><span class="label">Phương thức</span><span class="value">${r.paymentMethod}</span></div>
+    <div class="row"><span class="label">Ngày thu</span><span class="value">${r.paidDate}</span></div>
+    <div class="row"><span class="label">Thu ngân</span><span class="value">${r.receivedBy}</span></div>
+    ${r.note ? `<div class="row"><span class="label">Ghi chú</span><span class="value">${r.note}</span></div>` : ""}
+    <div class="footer">Cảm ơn Quý học viên đã tin tưởng và đồng hành cùng Trung tâm!<br>Biên lai này có giá trị khi có chữ ký xác nhận của thu ngân.</div>
+    <script>window.onload = () => { window.print(); }</script>
+    </body></html>
+  `);
+  win.document.close();
+}
+
 export function AdminFeeReceipts() {
   useDocumentTitle("Phiếu Thu học phí");
-  const [data, setData] = useState<FeeReceipt[]>(receipts);
+  const { feeReceipts: data, addFeeReceipt } = useAppData();
   const [search, setSearch] = useState("");
   const [filters, setFilter] = useUrlFilters({ method: "all", status: "all" });
   const { page, pageSize, setPage } = useUrlPagination();
@@ -83,20 +103,26 @@ export function AdminFeeReceipts() {
 
   const handleAdd = () => {
     if (!form.studentName || !form.periodName || form.amount <= 0) { toast.error("Vui lòng điền đầy đủ thông tin"); return; }
-    const final = form.amount - form.discountAmount;
-    const newReceipt: FeeReceipt = {
-      id: String(data.length + 1),
-      receiptCode: `PT-26-${String(data.length + 1).padStart(4, "0")}`,
-      finalAmount: final,
+    const newR = addFeeReceipt({
+      receiptCode: genReceiptCode(data.length),
+      studentId: "",
+      studentCode: form.studentCode,
+      studentName: form.studentName,
+      courseId: "",
+      courseName: form.periodName,
+      periodName: form.periodName,
+      amount: form.amount,
+      discountAmount: form.discountAmount,
+      finalAmount: form.amount - form.discountAmount,
+      paymentMethod: form.paymentMethod,
       paidDate: new Date().toLocaleDateString("vi-VN"),
       receivedBy: "Admin",
+      note: form.note,
       status: "confirmed",
-      ...form,
-    };
-    setData(prev => [newReceipt, ...prev]);
+    });
     setAddOpen(false);
     setForm({ studentName: "", studentCode: "", periodName: "", amount: 0, discountAmount: 0, paymentMethod: "Tiền mặt", note: "" });
-    toast.success(`Đã tạo phiếu thu ${newReceipt.receiptCode}`);
+    toast.success(`Đã tạo phiếu thu ${newR.receiptCode}`);
   };
 
   return (
@@ -193,7 +219,7 @@ export function AdminFeeReceipts() {
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => setDetailId(r.id)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"><Eye className="w-4 h-4 text-muted-foreground" /></button>
-                        <button onClick={() => toast.success(`Đã in phiếu thu ${r.receiptCode}`)} className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-500/10"><Printer className="w-4 h-4 text-teal-500" /></button>
+                        <button onClick={() => printReceipt(r)} className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-500/10" title="In biên lai"><Printer className="w-4 h-4 text-teal-500" /></button>
                       </div>
                     </td>
                   </tr>
@@ -243,7 +269,7 @@ export function AdminFeeReceipts() {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => toast.success("Đã gửi lệnh in biên lai")} className="w-full mt-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-[14px] transition-colors flex items-center justify-center gap-2">
+                <button onClick={() => printReceipt(detail)} className="w-full mt-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-[14px] transition-colors flex items-center justify-center gap-2">
                   <Printer className="w-4 h-4" /> In biên lai
                 </button>
               </div>

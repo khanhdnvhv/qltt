@@ -2,31 +2,10 @@ import { useState, useMemo } from "react";
 import { useDocumentTitle, useEscapeKey } from "../../utils/hooks";
 import { useUrlPagination } from "../../utils/useUrlPagination";
 import { AnimatePresence, motion } from "motion/react";
-import { Search, Clock, Plus, X, CheckCircle, RotateCcw, Eye } from "lucide-react";
+import { Search, Clock, Plus, X, CheckCircle, RotateCcw, Eye, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Pagination } from "./Pagination";
-
-interface ReserveRecord {
-  id: string;
-  studentName: string;
-  studentCode: string;
-  course: string;
-  reserveFrom: string;
-  reserveTo: string;
-  months: number;
-  reason: string;
-  refundPercent: number;
-  resumeDate: string | null;
-  approvedBy: string;
-  status: "active" | "resumed" | "expired";
-}
-
-const records: ReserveRecord[] = [
-  { id: "1", studentName: "Lý Gia Hân", studentCode: "HV-26-0003", course: "Kỹ thuật Nấu ăn 3 tháng", reserveFrom: "01/02/2026", reserveTo: "01/08/2026", months: 6, reason: "Bệnh dài hạn — có giấy chứng nhận bệnh viện", refundPercent: 70, resumeDate: null, approvedBy: "Nguyễn Thị Thanh", status: "active" },
-  { id: "2", studentName: "Trương Minh Khoa", studentCode: "HV-26-0018", course: "Luyện thi TOEIC 450+", reserveFrom: "15/02/2026", reserveTo: "15/08/2026", months: 6, reason: "Đi nghĩa vụ quân sự", refundPercent: 80, resumeDate: null, approvedBy: "Giám đốc TT", status: "active" },
-  { id: "3", studentName: "Đinh Thị Lan", studentCode: "HV-25-0701", course: "Tiếng Anh B1 VSTEP", reserveFrom: "01/09/2025", reserveTo: "01/03/2026", months: 6, reason: "Sinh con — nghỉ thai sản", refundPercent: 80, resumeDate: "05/03/2026", approvedBy: "Nguyễn Thị Thanh", status: "resumed" },
-  { id: "4", studentName: "Phùng Văn Hoan", studentCode: "HV-25-0654", course: "Lập trình Web Frontend", reserveFrom: "01/06/2025", reserveTo: "01/12/2025", months: 6, reason: "Đi công tác nước ngoài", refundPercent: 70, resumeDate: null, approvedBy: "Giám đốc TT", status: "expired" },
-];
+import { useAppData, type AppStudentReserve } from "../../context/AppDataContext";
 
 const statusCfg = {
   active: { label: "Đang bảo lưu", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-700 dark:text-amber-400" },
@@ -36,13 +15,23 @@ const statusCfg = {
 
 export function AdminStudentReserve() {
   useDocumentTitle("Bảo lưu");
-  const [data, setData] = useState<ReserveRecord[]>(records);
+  const { reserveRecords: data, addReserveRecord, updateReserveStatus, students: storeStudents, enrollments } = useAppData();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const { page, pageSize, setPage } = useUrlPagination();
   const [addOpen, setAddOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [form, setForm] = useState({ studentName: "", studentCode: "", course: "", reserveFrom: "", months: 3, reason: "", refundPercent: 70 });
+
+  // Count active reserves for entered student+course combination
+  const existingActiveReserves = useMemo(() => {
+    if (!form.studentName || !form.course) return 0;
+    return data.filter(d =>
+      d.status === "active" &&
+      d.studentName.toLowerCase() === form.studentName.toLowerCase() &&
+      d.courseName.toLowerCase().includes(form.course.toLowerCase().split(" ")[0])
+    ).length;
+  }, [data, form.studentName, form.course]);
 
   useEscapeKey(() => { setAddOpen(false); setDetailId(null); }, addOpen || !!detailId);
 
@@ -61,11 +50,34 @@ export function AdminStudentReserve() {
 
   const handleAdd = () => {
     if (!form.studentName || !form.course || !form.reason || !form.reserveFrom) { toast.error("Vui lòng điền đầy đủ thông tin"); return; }
+
+    const activeReservesForProgram = data.filter(d =>
+      d.status === "active" &&
+      d.studentName.toLowerCase() === form.studentName.toLowerCase() &&
+      d.courseName.toLowerCase().includes(form.course.toLowerCase().split(" ")[0])
+    );
+    if (activeReservesForProgram.length >= 2) {
+      toast.error(`Học viên đã có ${activeReservesForProgram.length} bảo lưu hiệu lực. Tối đa 2 lần bảo lưu mỗi chương trình.`);
+      return;
+    }
+
     const from = new Date(form.reserveFrom);
     const to = new Date(from);
     to.setMonth(to.getMonth() + form.months);
-    const newRecord: ReserveRecord = {
-      id: String(data.length + 1),
+
+    // Try to find matching student in store
+    const matchStudent = storeStudents.find(s =>
+      s.name.toLowerCase() === form.studentName.toLowerCase() ||
+      s.code === form.studentCode
+    );
+    const matchEnroll = matchStudent ? enrollments.find(e => e.studentId === matchStudent.id && e.status === "active") : undefined;
+
+    addReserveRecord({
+      studentId: matchStudent?.id ?? "",
+      studentCode: form.studentCode || matchStudent?.code || `HV-26-${String(Math.floor(Math.random() * 900 + 100))}`,
+      studentName: form.studentName,
+      courseId: matchEnroll?.courseId ?? "",
+      courseName: form.course,
       months: form.months,
       reserveFrom: from.toLocaleDateString("vi-VN"),
       reserveTo: to.toLocaleDateString("vi-VN"),
@@ -73,18 +85,14 @@ export function AdminStudentReserve() {
       approvedBy: "Admin",
       status: "active",
       refundPercent: form.refundPercent,
-      studentName: form.studentName,
-      studentCode: form.studentCode || `HV-26-${String(Math.floor(Math.random() * 900 + 100))}`,
-      course: form.course,
       reason: form.reason,
-    };
-    setData(prev => [newRecord, ...prev]);
+    });
     setAddOpen(false);
     toast.success("Đã xác nhận bảo lưu học viên");
   };
 
   const handleResume = (id: string) => {
-    setData(prev => prev.map(d => d.id === id ? { ...d, status: "resumed" as const, resumeDate: new Date().toLocaleDateString("vi-VN") } : d));
+    updateReserveStatus(id, "resumed", new Date().toLocaleDateString("vi-VN"));
     toast.success("Đã kích hoạt lại học tập cho học viên");
   };
 
@@ -151,7 +159,7 @@ export function AdminStudentReserve() {
                       <p className="text-[11px] font-mono text-muted-foreground">{r.studentCode}</p>
                     </td>
                     <td className="px-4 py-3.5 hidden md:table-cell">
-                      <p className="font-medium text-[13px]">{r.course}</p>
+                      <p className="font-medium text-[13px]">{r.courseName}</p>
                       <p className="text-[12px] text-muted-foreground italic">{r.reason}</p>
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell">
@@ -204,11 +212,24 @@ export function AdminStudentReserve() {
                   <div className="flex gap-2">{[0, 30, 50, 70, 80, 100].map(p => (<button key={p} onClick={() => setForm(f => ({ ...f, refundPercent: p }))} className={`flex-1 py-2 rounded-xl border text-[13px] font-semibold transition-all ${form.refundPercent === p ? "border-amber-400 bg-amber-50 dark:bg-amber-500/10 text-amber-700" : "border-gray-200 dark:border-border text-muted-foreground"}`}>{p}%</button>))}
                   </div>
                 </div>
+                {existingActiveReserves >= 1 && (
+                  <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${existingActiveReserves >= 2 ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30" : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30"}`}>
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${existingActiveReserves >= 2 ? "text-red-500" : "text-amber-500"}`} />
+                    <div>
+                      <p className={`text-[13px] font-semibold ${existingActiveReserves >= 2 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                        {existingActiveReserves >= 2 ? "Đã đạt giới hạn bảo lưu!" : "Cảnh báo: Sắp đạt giới hạn"}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                        Học viên đang có {existingActiveReserves} bảo lưu hiệu lực. Tối đa 2 lần bảo lưu mỗi chương trình.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div><label className="block text-[13px] font-semibold mb-1.5">Lý do bảo lưu *</label><textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} rows={2} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none resize-none" placeholder="Lý do cụ thể..." /></div>
               </div>
               <div className="p-5 border-t border-gray-100 dark:border-border flex gap-3">
                 <button onClick={() => setAddOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-border text-[14px] font-semibold hover:bg-gray-50 dark:hover:bg-white/5">Hủy</button>
-                <button onClick={handleAdd} className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[14px] font-semibold">Xác nhận bảo lưu</button>
+                <button onClick={handleAdd} disabled={existingActiveReserves >= 2} className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold">Xác nhận bảo lưu</button>
               </div>
             </motion.div>
           </motion.div>

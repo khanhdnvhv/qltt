@@ -165,10 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load auth state on mount
+  // Load auth state on mount – check sessionStorage first (non-persistent), then localStorage (remember me)
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         setUser(parsed);
@@ -180,9 +180,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistUser = useCallback((u: User | null) => {
     setUser(u);
     if (u) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      // Use whichever storage is currently active (session=non-persistent, local=remember me)
+      const inSession = !!sessionStorage.getItem(STORAGE_KEY);
+      if (inSession) {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      }
     } else {
       localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
@@ -191,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const rl = checkRateLimit("login", 5, 60000, 30000);
     if (!rl.allowed) {
       const seconds = Math.ceil(rl.retryAfterMs / 1000);
-      return { success: false, error: `Qua nhieu lan thu. Vui long doi ${seconds} giay.` };
+      return { success: false, error: `Quá nhiều lần thử. Vui lòng đợi ${seconds} giây.` };
     }
 
     const cleanEmail = sanitizeEmail(email);
@@ -201,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const users = getStoredUsers();
     const found = users.find((u: any) => u.email === cleanEmail && u.password === cleanPassword);
     if (!found) {
-      return { success: false, error: "Email hoac mat khau khong chinh xac" };
+      return { success: false, error: "Email hoặc mật khẩu không chính xác" };
     }
 
     // Reset rate limit on success
@@ -220,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const rl = checkRateLimit("register", 3, 300000, 60000);
     if (!rl.allowed) {
       const seconds = Math.ceil(rl.retryAfterMs / 1000);
-      return { success: false, error: `Qua nhieu lan thu. Vui long doi ${seconds} giay.` };
+      return { success: false, error: `Quá nhiều lần thử. Vui lòng đợi ${seconds} giây.` };
     }
 
     const cleanEmail = sanitizeEmail(data.email);
@@ -230,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise((r) => setTimeout(r, 800));
     const users = getStoredUsers();
     if (users.find((u: any) => u.email === cleanEmail)) {
-      return { success: false, error: "Email da duoc su dung" };
+      return { success: false, error: "Email đã được sử dụng" };
     }
     const newUser = {
       id: generateSessionId(),
@@ -279,18 +286,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const rl = checkRateLimit("forgot-password", 3, 600000, 120000);
     if (!rl.allowed) {
       const seconds = Math.ceil(rl.retryAfterMs / 1000);
-      return { success: false, error: `Qua nhieu lan thu. Vui long doi ${seconds} giay.` };
+      return { success: false, error: `Quá nhiều lần thử. Vui lòng đợi ${seconds} giây.` };
     }
 
     const cleanEmail = sanitizeEmail(email);
     await new Promise((r) => setTimeout(r, 800));
     const users = getStoredUsers();
     const found = users.find((u: any) => u.email === cleanEmail);
-    if (!found) {
-      return { success: false, error: "Khong tim thay tai khoan voi email nay" };
+    // Anti-enumeration: always return success regardless of whether email exists
+    if (found) {
+      localStorage.setItem("ielts_reset_token", JSON.stringify({ email: cleanEmail, token: "reset-" + Date.now(), expiresAt: Date.now() + 600000 }));
     }
-    // Mock: store a reset token
-    localStorage.setItem("ielts_reset_token", JSON.stringify({ email, token: "reset-" + Date.now(), expiresAt: Date.now() + 600000 }));
     return { success: true };
   }, []);
 
@@ -298,27 +304,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise((r) => setTimeout(r, 800));
     try {
       const stored = localStorage.getItem("ielts_reset_token");
-      if (!stored) return { success: false, error: "Link dat lai mat khau da het han" };
-      const { email } = JSON.parse(stored);
+      if (!stored) return { success: false, error: "Liên kết đặt lại mật khẩu đã hết hạn" };
+      const { email, expiresAt } = JSON.parse(stored);
+      if (Date.now() > expiresAt) {
+        localStorage.removeItem("ielts_reset_token");
+        return { success: false, error: "Liên kết đặt lại mật khẩu đã hết hạn" };
+      }
       const users = getStoredUsers();
       const idx = users.findIndex((u: any) => u.email === email);
-      if (idx < 0) return { success: false, error: "Khong tim thay tai khoan" };
+      if (idx < 0) return { success: false, error: "Không tìm thấy tài khoản" };
       users[idx].password = password;
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
       localStorage.removeItem("ielts_reset_token");
       return { success: true };
     } catch {
-      return { success: false, error: "Co loi xay ra" };
+      return { success: false, error: "Có lỗi xảy ra. Vui lòng thử lại" };
     }
   }, []);
 
   const changePassword = useCallback(async (oldPassword: string, newPassword: string) => {
     await new Promise((r) => setTimeout(r, 800));
-    if (!user) return { success: false, error: "Chua dang nhap" };
+    if (!user) return { success: false, error: "Chưa đăng nhập" };
     const users = getStoredUsers();
     const found = users.find((u: any) => u.id === user.id);
     if (!found || found.password !== oldPassword) {
-      return { success: false, error: "Mat khau cu khong dung" };
+      return { success: false, error: "Mật khẩu cũ không đúng" };
     }
     found.password = newPassword;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));

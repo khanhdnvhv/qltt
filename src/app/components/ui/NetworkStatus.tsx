@@ -43,7 +43,7 @@ export function NetworkStatus() {
             <div className="flex items-center justify-center gap-2">
               <WifiOff className="w-4 h-4" />
               <span className="text-[15px]" style={{ fontWeight: 600 }}>
-                Mat ket noi mang. Vui long kiem tra lai ket noi internet.
+                Mất kết nối mạng. Vui lòng kiểm tra lại kết nối internet.
               </span>
             </div>
           </motion.div>
@@ -59,7 +59,7 @@ export function NetworkStatus() {
             <div className="flex items-center justify-center gap-2">
               <Wifi className="w-4 h-4" />
               <span className="text-[15px]" style={{ fontWeight: 600 }}>
-                Da ket noi lai thanh cong!
+                Đã kết nối lại thành công!
               </span>
             </div>
           </motion.div>

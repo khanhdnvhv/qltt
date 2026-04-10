@@ -34,7 +34,7 @@ export function CertificateGenerator({ data, onClose }: Props) {
     setIsDownloading(true);
     await new Promise((r) => setTimeout(r, 800));
     // In real app, would use html2canvas + jsPDF
-    toast.success("Da tai chung chi thanh cong!");
+    toast.success("Đã tải chứng chỉ thành công!");
     setIsDownloading(false);
   };
 
@@ -184,7 +184,7 @@ export function CertificateGenerator({ data, onClose }: Props) {
                 <div className="text-center">
                   <p className="text-[16px] sm:text-[15px] text-[#1a1a2e]" style={{ fontWeight: 700 }}>{data.instructorName}</p>
                   <div className="h-px w-24 bg-[#1a1a2e]/20 my-1 mx-auto" />
-                  <p className="text-[9px] sm:text-[16px] text-muted-foreground">Giang vien</p>
+                  <p className="text-[9px] sm:text-[16px] text-muted-foreground">Giảng viên</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[16px] sm:text-[15px] text-[#1a1a2e]" style={{ fontWeight: 700 }}>{data.completionDate}</p>

@@ -113,31 +113,27 @@ export function CommandPalette() {
 
   const commands: CommandItem[] = useMemo(() => [
     // Navigation
-    { id: "nav-dashboard", label: "Dashboard", icon: LayoutDashboard, category: "Dieu huong", action: () => goTo("/admin"), keywords: ["tong quan", "home"] },
-    { id: "nav-users", label: "Quan ly nguoi dung", icon: Users, category: "Dieu huong", action: () => goTo("/admin/users"), keywords: ["hoc vien", "student", "teacher"] },
-    { id: "nav-courses", label: "Quan ly khoa hoc", icon: BookOpen, category: "Dieu huong", action: () => goTo("/admin/courses"), keywords: ["course", "lop hoc"] },
-    { id: "nav-blog", label: "Quan ly bai viet", icon: FileText, category: "Dieu huong", action: () => goTo("/admin/blog"), keywords: ["blog", "tin tuc"] },
-    { id: "nav-reviews", label: "Quan ly danh gia", icon: MessageSquare, category: "Dieu huong", action: () => goTo("/admin/reviews"), keywords: ["review", "feedback"] },
-    { id: "nav-orders", label: "Quan ly don hang", icon: CreditCard, category: "Dieu huong", action: () => goTo("/admin/orders"), keywords: ["order", "thanh toan"] },
-    { id: "nav-discounts", label: "Ma giam gia", icon: Tag, category: "Dieu huong", action: () => goTo("/admin/discounts"), keywords: ["coupon", "khuyen mai", "voucher"] },
-    { id: "nav-analytics", label: "Thong ke", icon: BarChart3, category: "Dieu huong", action: () => goTo("/admin/analytics"), keywords: ["bao cao", "report", "chart"] },
-    { id: "nav-notifications", label: "Thong bao", icon: Bell, category: "Dieu huong", action: () => goTo("/admin/notifications"), keywords: ["notification", "alert"] },
-    { id: "nav-settings", label: "Cai dat", icon: Settings, category: "Dieu huong", action: () => goTo("/admin/settings"), keywords: ["setting", "config"] },
+    { id: "nav-dashboard", label: "Dashboard", icon: LayoutDashboard, category: "Điều hướng", action: () => goTo("/admin"), keywords: ["tổng quan", "home"] },
+    { id: "nav-users", label: "Quản lý người dùng", icon: Users, category: "Điều hướng", action: () => goTo("/admin/users"), keywords: ["học viên", "student", "teacher"] },
+    { id: "nav-students", label: "Hồ sơ Học viên", icon: BookOpen, category: "Điều hướng", action: () => goTo("/admin/students"), keywords: ["học viên", "hồ sơ"] },
+    { id: "nav-classes", label: "Quản lý Lớp học", icon: BookOpen, category: "Điều hướng", action: () => goTo("/admin/classes"), keywords: ["lớp học", "class"] },
+    { id: "nav-teachers", label: "Quản lý Giảng viên", icon: Users, category: "Điều hướng", action: () => goTo("/admin/teachers"), keywords: ["giảng viên", "giáo viên"] },
+    { id: "nav-analytics", label: "Thống kê & Báo cáo", icon: BarChart3, category: "Điều hướng", action: () => goTo("/admin/analytics"), keywords: ["báo cáo", "report", "chart"] },
+    { id: "nav-notifications", label: "Thông báo", icon: Bell, category: "Điều hướng", action: () => goTo("/admin/notifications"), keywords: ["notification", "alert"] },
+    { id: "nav-settings", label: "Cài đặt", icon: Settings, category: "Điều hướng", action: () => goTo("/admin/settings"), keywords: ["setting", "config"] },
 
     // Quick actions
-    { id: "act-add-user", label: "Them nguoi dung moi", description: "Tao tai khoan hoc vien/giang vien", icon: UserPlus, category: "Thao tac nhanh", action: () => goTo("/admin/users"), keywords: ["tao user", "them hoc vien"] },
-    { id: "act-add-course", label: "Them khoa hoc moi", icon: Plus, category: "Thao tac nhanh", action: () => goTo("/admin/courses"), keywords: ["tao khoa hoc", "new course"] },
-    { id: "act-add-discount", label: "Tao ma giam gia", icon: Tag, category: "Thao tac nhanh", action: () => goTo("/admin/discounts"), keywords: ["tao coupon", "ma khuyen mai"] },
-    { id: "act-export", label: "Xuat du lieu CSV", description: "Xuat nguoi dung hoac don hang", icon: Download, category: "Thao tac nhanh", action: () => goTo("/admin/users"), keywords: ["export", "download"] },
+    { id: "act-enroll", label: "Ghi danh Học viên mới", description: "Tiếp nhận học viên và ghi danh khóa học", icon: UserPlus, category: "Thao tác nhanh", action: () => goTo("/admin/students/enrollment"), keywords: ["ghi danh", "nhập học", "học viên mới"] },
+    { id: "act-add-class", label: "Tạo Lớp học mới", icon: Plus, category: "Thao tác nhanh", action: () => goTo("/admin/classes"), keywords: ["tạo lớp", "lớp mới"] },
+    { id: "act-export", label: "Xuất dữ liệu CSV", description: "Xuất danh sách học viên hoặc báo cáo", icon: Download, category: "Thao tác nhanh", action: () => goTo("/admin/students"), keywords: ["export", "download"] },
 
     // System
-    { id: "sys-theme", label: theme === "dark" ? "Chuyen sang Light Mode" : "Chuyen sang Dark Mode", icon: theme === "dark" ? Sun : Moon, category: "He thong", action: () => { toggleTheme(); setOpen(false); }, keywords: ["dark", "light", "giao dien", "che do toi", "che do sang"] },
-    { id: "sys-shortcuts", label: "Xem phim tat", description: "Nhan ? de xem tat ca phim tat", icon: Keyboard, category: "He thong", action: () => setOpen(false), keywords: ["shortcut", "keyboard", "ban phim"] },
-    { id: "sys-logout", label: "Dang xuat", icon: LogOut, category: "He thong", action: () => { navigate("/login"); setOpen(false); }, keywords: ["logout", "thoat"] },
+    { id: "sys-theme", label: theme === "dark" ? "Chuyển sang Light Mode" : "Chuyển sang Dark Mode", icon: theme === "dark" ? Sun : Moon, category: "Hệ thống", action: () => { toggleTheme(); setOpen(false); }, keywords: ["dark", "light", "giao diện", "chế độ tối", "chế độ sáng"] },
+    { id: "sys-shortcuts", label: "Xem phím tắt", description: "Nhấn ? để xem tất cả phím tắt", icon: Keyboard, category: "Hệ thống", action: () => setOpen(false), keywords: ["shortcut", "keyboard", "bàn phím"] },
+    { id: "sys-logout", label: "Đăng xuất", icon: LogOut, category: "Hệ thống", action: () => { navigate("/login"); setOpen(false); }, keywords: ["logout", "thoát"] },
 
     // Public pages
-    { id: "pub-home", label: "Trang chu (public)", icon: Zap, category: "Trang public", action: () => { navigate("/"); setOpen(false); }, keywords: ["homepage", "landing"] },
-    { id: "pub-courses", label: "Khoa hoc (public)", icon: BookOpen, category: "Trang public", action: () => { navigate("/courses"); setOpen(false); }, keywords: ["course page"] },
+    { id: "pub-home", label: "Trang chủ (public)", icon: Zap, category: "Trang public", action: () => { navigate("/"); setOpen(false); }, keywords: ["homepage", "landing"] },
   ], [goTo, theme, toggleTheme, navigate]);
 
   // Build recent commands list
@@ -272,7 +268,7 @@ export function CommandPalette() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Tim kiem trang, thao tac..."
+                placeholder="Tìm kiếm trang, thao tác..."
                 className="flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground/40"
                 autoComplete="off"
                 spellCheck={false}
@@ -286,7 +282,7 @@ export function CommandPalette() {
             <div ref={listRef} className="overflow-y-auto py-2 max-h-[55vh]">
               {flatList.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-[15px] text-muted-foreground">Khong tim thay ket qua cho &ldquo;{query}&rdquo;</p>
+                  <p className="text-[15px] text-muted-foreground">Không tìm thấy kết quả cho &ldquo;{query}&rdquo;</p>
                 </div>
               )}
 
@@ -295,13 +291,13 @@ export function CommandPalette() {
                 <div>
                   <div className="flex items-center justify-between px-5 py-1.5">
                     <p className="text-[16px] text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1" style={{ fontWeight: 700 }}>
-                      <Clock className="w-3 h-3" /> Gan day
+                      <Clock className="w-3 h-3" /> Gần đây
                     </p>
                     <button
                       onClick={() => { clearRecents(); setRecentIds([]); }}
                       className="text-[16px] text-muted-foreground/40 hover:text-muted-foreground transition-colors flex items-center gap-0.5"
                     >
-                      <X className="w-2.5 h-2.5" /> Xoa
+                      <X className="w-2.5 h-2.5" /> Xóa
                     </button>
                   </div>
                   {displayList.recents.map((cmd) => {
@@ -331,15 +327,15 @@ export function CommandPalette() {
               <div className="flex items-center gap-3 text-[16px] text-muted-foreground/50">
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-white/[0.08] rounded text-[9px]" style={{ fontWeight: 600 }}>  </kbd>
-                  Di chuyen
+                  Di chuyển
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-white/[0.08] rounded text-[9px]" style={{ fontWeight: 600 }}> </kbd>
-                  Chon
+                  Chọn
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-white/[0.08] rounded text-[9px]" style={{ fontWeight: 600 }}>Esc</kbd>
-                  Dong
+                  Đóng
                 </span>
               </div>
               <span className="text-[16px] text-muted-foreground/40">{flatList.length} ket qua</span>

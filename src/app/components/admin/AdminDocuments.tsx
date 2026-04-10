@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useDocumentTitle } from "../../utils/hooks";
 import { useOutletContext } from "react-router";
 import {
   Search, FileText, CheckCircle, ShieldAlert, Plus, Download, Edit, Trash2, Eye, Send,
-  FolderOpen, Folder, File, FileBadge, ChevronRight, CheckSquare, Clock, Filter, MoreVertical
+  FolderOpen, Folder, File, FileBadge, ChevronRight, CheckSquare, Clock, Filter, MoreVertical, Upload, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -45,10 +45,58 @@ export function AdminDocuments() {
   const [docs, setDocs] = useState<MockDoc[]>(initialDocs);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  
+
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [signModal, setSignModal] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [newDocForm, setNewDocForm] = useState({ type: "Công văn Chỉ đạo", title: "" });
+  const docFileRef = useRef<HTMLInputElement>(null);
+
+  const handleDocFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedExt = ["pdf", "doc", "docx"];
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedExt.includes(ext)) {
+      toast.error("Chỉ hỗ trợ file PDF hoặc Word (.doc, .docx)");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File không được vượt quá 10MB");
+      return;
+    }
+    setAttachedFile(file);
+  }, []);
+
+  const handleCreateDoc = useCallback(() => {
+    if (!newDocForm.title.trim()) {
+      toast.error("Vui lòng nhập trích yếu nội dung văn bản");
+      return;
+    }
+    const typeMap: Record<string, string> = {
+      "Công văn Chỉ đạo": "Công văn",
+      "Quyết định Hành chính": "Quyết định",
+      "Thông báo Điều hành": "Thông báo",
+    };
+    setDocs(prev => [{
+      id: Date.now().toString(),
+      no: `[Dự thảo ${Date.now().toString().slice(-4)}]`,
+      title: newDocForm.title,
+      type: typeMap[newDocForm.type] ?? "Thông báo",
+      date: new Date().toLocaleDateString("vi-VN"),
+      status: "draft",
+      signed: false,
+      color: "bg-gray-400",
+    }, ...prev]);
+    setNewDocOpen(false);
+    setAttachedFile(null);
+    setNewDocForm({ type: "Công văn Chỉ đạo", title: "" });
+    if (docFileRef.current) docFileRef.current.value = "";
+    toast.success(attachedFile
+      ? `Đã tạo dự thảo với file "${attachedFile.name}" — chờ duyệt ký số`
+      : "Đã khởi tạo dự thảo văn bản, chờ đính kèm file");
+  }, [newDocForm, attachedFile]);
 
   const filteredDocs = docs.filter(c => {
     const sMatch = c.title.toLowerCase().includes(search.toLowerCase()) || c.no.toLowerCase().includes(search.toLowerCase());
@@ -246,43 +294,52 @@ export function AdminDocuments() {
               <div className="p-6 space-y-5 flex-1 overflow-y-auto">
                  <div>
                    <label className="text-[14px] font-bold text-foreground block mb-2">Loại hình / Danh mục</label>
-                   <select className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all">
+                   <select
+                     value={newDocForm.type}
+                     onChange={e => setNewDocForm(prev => ({ ...prev, type: e.target.value }))}
+                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                   >
                      <option>Công văn Chỉ đạo</option>
                      <option>Quyết định Hành chính</option>
                      <option>Thông báo Điều hành</option>
                    </select>
                  </div>
                  <div>
-                   <label className="text-[14px] font-bold text-foreground block mb-2">Trích yếu nội dung</label>
-                   <textarea rows={3} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" placeholder="Nhập trích yếu ngắn gọn..." />
+                   <label className="text-[14px] font-bold text-foreground block mb-2">Trích yếu nội dung <span className="text-rose-500">*</span></label>
+                   <textarea
+                     rows={3}
+                     value={newDocForm.title}
+                     onChange={e => setNewDocForm(prev => ({ ...prev, title: e.target.value }))}
+                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                     placeholder="Nhập trích yếu ngắn gọn..."
+                   />
                  </div>
                  <div>
                    <label className="text-[14px] font-bold text-foreground block mb-2">Đính kèm bản mộc (PDF/DOCX)</label>
-                   <div className="border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 text-center cursor-pointer transition-colors group">
-                      <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                         <FileText className="w-6 h-6 text-primary" />
-                      </div>
-                      <p className="text-[15px] font-bold text-primary mb-1">Upload hoặc Kéo thả File</p>
-                      <p className="text-[13px] text-muted-foreground font-medium">Hỗ trợ PDF tối đa 10MB</p>
-                   </div>
+                   <input ref={docFileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleDocFileChange} />
+                   {attachedFile ? (
+                     <div className="flex items-center gap-3 border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl px-4 py-3">
+                       <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+                       <div className="flex-1 min-w-0">
+                         <p className="text-[14px] font-bold text-emerald-700 dark:text-emerald-400 truncate">{attachedFile.name}</p>
+                         <p className="text-[12px] text-emerald-600/80">{(attachedFile.size / 1024).toFixed(0)} KB</p>
+                       </div>
+                       <button onClick={() => { setAttachedFile(null); if (docFileRef.current) docFileRef.current.value = ""; }} className="text-[12px] text-rose-500 font-semibold hover:underline">Xóa</button>
+                     </div>
+                   ) : (
+                     <div onClick={() => docFileRef.current?.click()} className="border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 text-center cursor-pointer transition-colors group">
+                       <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                         <Upload className="w-6 h-6 text-primary" />
+                       </div>
+                       <p className="text-[15px] font-bold text-primary mb-1">Upload hoặc Kéo thả File</p>
+                       <p className="text-[13px] text-muted-foreground font-medium">Hỗ trợ PDF, DOCX — Tối đa 10MB</p>
+                     </div>
+                   )}
                  </div>
               </div>
               <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
-                 <button onClick={() => setNewDocOpen(false)} className="px-5 py-2.5 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-xl transition-colors">Hủy thao tác</button>
-                 <button onClick={() => {
-                   setDocs([{
-                     id: Date.now().toString(),
-                     no: "[Dự thảo " + Date.now().toString().slice(-4) + "]",
-                     title: "Dự thảo nội quy vận hành nâng cấp hệ thống",
-                     type: "Thông báo",
-                     date: new Date().toLocaleDateString("vi-VN"),
-                     status: "draft",
-                     signed: false,
-                     color: "bg-blue-500"
-                   }, ...docs]);
-                   setNewDocOpen(false);
-                   toast.success("Đã ghi nhận lên hệ thống chờ duyệt!");
-                 }} className="px-6 py-2.5 bg-[#1a1a2e] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(26,26,46,0.3)] hover:shadow-[0_6px_20px_rgba(26,26,46,0.4)] transition-all">Lưu vào Kho Nháp</button>
+                 <button onClick={() => { setNewDocOpen(false); setAttachedFile(null); setNewDocForm({ type: "Công văn Chỉ đạo", title: "" }); }} className="px-5 py-2.5 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-xl transition-colors">Hủy thao tác</button>
+                 <button onClick={handleCreateDoc} className="px-6 py-2.5 bg-[#1a1a2e] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(26,26,46,0.3)] hover:shadow-[0_6px_20px_rgba(26,26,46,0.4)] transition-all">Lưu vào Kho Nháp</button>
               </div>
             </motion.div>
           </div>

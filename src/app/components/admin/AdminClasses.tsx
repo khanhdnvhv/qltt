@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useDocumentTitle } from "../../utils/hooks";
 import { useOutletContext } from "react-router";
+import { useAppData } from "../../context/AppDataContext";
 import {
   Search, Plus, CalendarDays, Users, Users2, LayoutGrid, Calendar,
   MonitorStop, Wrench, FileEdit, MoreHorizontal, UserCheck, X, Link, ArrowRight
@@ -33,14 +34,6 @@ interface CenterClass {
   endDate: string;
 }
 
-const mockClasses: CenterClass[] = [
-  { id: "C01", code: "TA-B1-K26", name: "Lớp Tiếng Anh B1 VSTEP", program: "Ngoại ngữ", teacher: "Nguyễn Thị Mai", room: "Phòng 102", roomType: "theory", studentsCount: 28, maxStudents: 30, status: "active", schedule: [{ day: "T2", period: "Tối", time: "18:00-20:00" }, { day: "T4", period: "Tối", time: "18:00-20:00" }, { day: "T6", period: "Tối", time: "18:00-20:00" }], startDate: "15/01/2026", endDate: "15/05/2026" },
-  { id: "C02", code: "TH-CB-K11", name: "Tin học Cơ bản Chuẩn QG", program: "Tin học", teacher: "Trần Văn Hiếu", room: "Phòng Máy 1", roomType: "lab", studentsCount: 20, maxStudents: 20, status: "active", schedule: [{ day: "T3", period: "Chiều", time: "14:00-16:00" }, { day: "T5", period: "Chiều", time: "14:00-16:00" }], startDate: "20/02/2026", endDate: "20/04/2026" },
-  { id: "C03", code: "HAN-01-K02", name: "Hàn Điện Cơ bản", program: "Sơ cấp nghề", teacher: "Lý Quý", room: "Xưởng Thực hành 2", roomType: "workshop", studentsCount: 12, maxStudents: 15, status: "recruiting", schedule: [{ day: "T7", period: "Sáng", time: "08:00-11:30" }, { day: "CN", period: "Sáng", time: "08:00-11:30" }], startDate: "10/05/2026", endDate: "10/08/2026" },
-  { id: "C04", code: "TA-TOEIC-K9", name: "Luyện thi TOEIC 600+", program: "Ngoại ngữ", teacher: "Phạm Đức Minh", room: "Phòng 205", roomType: "theory", studentsCount: 15, maxStudents: 25, status: "recruiting", schedule: [{ day: "T2", period: "Sáng", time: "08:00-10:00" }, { day: "T4", period: "Sáng", time: "08:00-10:00" }], startDate: "01/06/2026", endDate: "01/09/2026" },
-  { id: "C05", code: "LT-WEB-K1", name: "Lập trình Web Frontend", program: "Tin học", teacher: "Võ Quang", room: "Phòng Máy 2", roomType: "lab", studentsCount: 30, maxStudents: 30, status: "active", schedule: [{ day: "T3", period: "Tối", time: "18:30-21:00" }, { day: "T5", period: "Tối", time: "18:30-21:00" }], startDate: "05/03/2026", endDate: "05/07/2026" },
-  { id: "C06", code: "NAU-05-K3", name: "Kỹ thuật Nấu ăn Á Âu", program: "Sơ cấp nghề", teacher: "Đào Bếp", room: "Khu Bếp Thực hành", roomType: "workshop", studentsCount: 25, maxStudents: 25, status: "completed", schedule: [{ day: "T7", period: "Chiều", time: "13:30-17:00" }], startDate: "10/10/2025", endDate: "10/01/2026" },
-];
 
 const statusStyles: Record<ClassStatus, { label: string, color: string, badgeBg: string }> = {
   recruiting: { label: "Đang tuyển sinh", color: "text-amber-600", badgeBg: "bg-amber-100 border-amber-200" },
@@ -57,18 +50,60 @@ const roomIcons: Record<RoomType, any> = {
 
 type ViewMode = "grid" | "timeline";
 
+// Map AppClass roomType to local type
+function toRoomType(rt: string): RoomType {
+  if (rt === "Lab") return "lab";
+  if (rt === "Xưởng") return "workshop";
+  return "theory";
+}
+// Map AppClass status to local ClassStatus
+function toClassStatus(s: string): ClassStatus {
+  if (s === "Tuyển sinh") return "recruiting";
+  if (s === "Hoạt động") return "active";
+  if (s === "Kết thúc") return "completed";
+  return "cancelled";
+}
+
 export function AdminClasses() {
   const { adminRole } = useOutletContext<{ adminRole: "department" | "center" }>();
   const isDepartment = adminRole === "department";
   useDocumentTitle(isDepartment ? "Tra cứu Lớp học" : "Quản lý Lớp học & Lịch học");
 
-  const [classes] = useState<CenterClass[]>(mockClasses);
+  const { classes: storeClasses, addClass, updateClass } = useAppData();
+
+  // Map AppClass → CenterClass for this component's UI
+  const classes = useMemo<CenterClass[]>(() => storeClasses.map(c => {
+    const DAY_MAP: Record<number, TimeSlot["day"]> = { 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7", 0: "CN" };
+    const PERIOD = (t: string): TimeSlot["period"] => {
+      const h = parseInt(t.split(":")[0], 10);
+      return h < 12 ? "Sáng" : h < 17 ? "Chiều" : "Tối";
+    };
+    return {
+      id: c.id, code: c.code,
+      name: c.courseName,
+      program: c.type === "GDTX" ? "Bổ túc THPT" : c.type === "GDNN" ? "Sơ cấp nghề" : "Ngoại ngữ / Tin học",
+      teacher: c.teacherName,
+      room: c.room,
+      roomType: toRoomType(c.roomType),
+      studentsCount: c.currentStudents,
+      maxStudents: c.maxStudents,
+      status: toClassStatus(c.status),
+      schedule: c.scheduleItems.map(si => ({
+        day: DAY_MAP[si.dayOfWeek] ?? "T2",
+        period: PERIOD(si.startTime),
+        time: `${si.startTime}-${si.endTime}`,
+      })),
+      startDate: c.startDate,
+      endDate: c.endDate,
+    };
+  }), [storeClasses]);
+
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedClass, setSelectedClass] = useState<CenterClass | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const filteredData = useMemo(() => classes.filter(c => 
+  const filteredData = useMemo(() => classes.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
   ), [classes, search]);
 

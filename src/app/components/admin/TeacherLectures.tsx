@@ -1,7 +1,9 @@
 import { useDocumentTitle } from "../../utils/hooks";
-import { useState, useMemo } from "react";
-import { Plus, Search, Upload, Download, Eye, Trash2, FileText, File, Video, Link2, X, FolderOpen, Clock, Tag } from "lucide-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { Plus, Search, Upload, Download, Eye, Trash2, FileText, File, Video, Link2, X, FolderOpen, Clock, Tag, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../auth/AuthContext";
+import { useAppData } from "../../context/AppDataContext";
 
 type FileType = "pdf" | "doc" | "pptx" | "video" | "link";
 type MaterialStatus = "draft" | "published";
@@ -28,27 +30,101 @@ const fileTypeCfg: Record<FileType, { icon: React.ElementType; bg: string; color
   link:  { icon: Link2,    bg: "bg-cyan-100 dark:bg-cyan-500/20",    color: "text-cyan-600",   label: "Link" },
 };
 
-const mockLectures: Lecture[] = [
-  { id: "L01", title: "Unit 1 – Greetings & Introductions – Slide bài giảng", course: "Tiếng Anh B1 VSTEP", unit: "Unit 1", fileType: "pptx", fileSize: "5.2 MB", status: "published", uploadedAt: "02/01/2026", downloads: 28, description: "Slide trình chiếu cho buổi học đầu tiên, bao gồm hướng dẫn phát âm cơ bản.", tags: ["Unit 1", "Giao tiếp", "Phát âm"] },
-  { id: "L02", title: "Unit 1 – Handout luyện tập Nghe – Nói", course: "Tiếng Anh B1 VSTEP", unit: "Unit 1", fileType: "pdf", fileSize: "1.8 MB", status: "published", uploadedAt: "02/01/2026", downloads: 26, description: "Bài tập thực hành kỹ năng nghe và nói cho Unit 1.", tags: ["Listening", "Speaking"] },
-  { id: "L03", title: "Unit 2 – Family & Daily Life – Bài giảng", course: "Tiếng Anh B1 VSTEP", unit: "Unit 2", fileType: "pptx", fileSize: "6.1 MB", status: "published", uploadedAt: "09/01/2026", downloads: 25, description: "Slide bài giảng Unit 2 về chủ đề gia đình và cuộc sống hàng ngày.", tags: ["Unit 2", "Vocabulary"] },
-  { id: "L04", title: "TOEIC Part 5 – Grammar Quick Review", course: "TOEIC 450+", unit: "Grammar", fileType: "pdf", fileSize: "3.4 MB", status: "published", uploadedAt: "15/01/2026", downloads: 22, description: "Tóm tắt ngữ pháp quan trọng cho phần thi Part 5 TOEIC.", tags: ["Grammar", "TOEIC", "Part 5"] },
-  { id: "L05", title: "TOEIC Part 1–2 – Listening Strategy Video", course: "TOEIC 450+", unit: "Listening", fileType: "video", fileSize: "256 MB", status: "published", uploadedAt: "17/01/2026", downloads: 19, description: "Video hướng dẫn chiến lược làm bài phần thi Listening TOEIC.", tags: ["Listening", "Strategy", "Video"] },
-  { id: "L06", title: "Unit 3 – Health & Lifestyle – Vocabulary List", course: "Tiếng Anh B1 VSTEP", unit: "Unit 3", fileType: "doc", fileSize: "0.9 MB", status: "published", uploadedAt: "16/01/2026", downloads: 24, description: "Danh sách từ vựng chủ đề sức khỏe, có ví dụ câu.", tags: ["Vocabulary", "Unit 3"] },
-  { id: "L07", title: "TOEIC Part 6–7 – Reading Comprehension Tips", course: "TOEIC 450+", unit: "Reading", fileType: "pdf", fileSize: "2.7 MB", status: "draft", uploadedAt: "20/01/2026", downloads: 0, description: "Tài liệu đang soạn thảo — chưa phát hành cho học viên.", tags: ["Reading", "Part 7"] },
-  { id: "L08", title: "Từ điển anh–việt chuyên ngành B1", course: "Tiếng Anh B1 VSTEP", unit: "Reference", fileType: "link", fileSize: "—", status: "published", uploadedAt: "22/01/2026", downloads: 31, description: "Đường dẫn đến từ điển chuyên ngành phục vụ ôn thi VSTEP.", tags: ["Reference", "Dictionary"] },
-];
 
-const courses = [...new Set(mockLectures.map(l => l.course))];
+function detectFileType(file: File): FileType {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "pdf";
+  if (ext === "doc" || ext === "docx") return "doc";
+  if (ext === "ppt" || ext === "pptx") return "pptx";
+  if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "video";
+  return "pdf";
+}
+
+function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
 
 export function TeacherLectures() {
   useDocumentTitle("Bài giảng & Tài liệu");
-  const [lectures, setLectures] = useState(mockLectures);
+  const { user } = useAuth();
+  const { getLecturesByTeacherId, addLecture, deleteLecture } = useAppData();
+
+  const storeLectures = getLecturesByTeacherId(user?.id ?? "teacher-001");
+  // Map AppLecture → local Lecture (add status/uploadedAt from store fields)
+  const lectures: Lecture[] = storeLectures.map(l => ({
+    id: l.id,
+    title: l.title,
+    course: l.course,
+    unit: l.unit,
+    fileType: l.fileType as FileType,
+    fileSize: l.fileSize,
+    status: "published" as MaterialStatus,
+    uploadedAt: l.uploadDate,
+    downloads: l.downloads,
+    description: l.description,
+    tags: l.tags,
+  }));
+
+  const courses = useMemo(() => [...new Set(lectures.map(l => l.course))], [lectures]);
+
   const [search, setSearch] = useState("");
   const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterType, setFilterType] = useState<FileType | "all">("all");
   const [preview, setPreview] = useState<Lecture | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadForm, setUploadForm] = useState({ title: "", course: "Tiếng Anh B1 VSTEP", unit: "", description: "", tags: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setUploadForm(prev => ({
+      ...prev,
+      title: prev.title || file.name.replace(/\.[^.]+$/, ""),
+    }));
+  }, []);
+
+  const handleDropAreaClick = useCallback(() => fileInputRef.current?.click(), []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadForm(prev => ({ ...prev, title: prev.title || file.name.replace(/\.[^.]+$/, "") }));
+    }
+  }, []);
+
+  const handleSubmitUpload = useCallback(() => {
+    if (!selectedFile && !uploadForm.title) {
+      toast.error("Vui lòng chọn file hoặc nhập tên tài liệu");
+      return;
+    }
+    const fileType = selectedFile ? detectFileType(selectedFile) : "link";
+    const fileSize = selectedFile ? fmtBytes(selectedFile.size) : "—";
+    addLecture({
+      teacherId: user?.id ?? "teacher-001",
+      title: uploadForm.title || (selectedFile?.name.replace(/\.[^.]+$/, "") ?? "Tài liệu mới"),
+      course: uploadForm.course || "Tiếng Anh B1 VSTEP",
+      unit: uploadForm.unit || "General",
+      fileType,
+      fileSize,
+      uploadDate: new Date().toLocaleDateString("vi-VN"),
+      downloads: 0,
+      views: 0,
+      description: uploadForm.description,
+      tags: uploadForm.tags.split(",").map(t => t.trim()).filter(Boolean),
+    });
+    setShowUpload(false);
+    setSelectedFile(null);
+    setUploadForm({ title: "", course: "Tiếng Anh B1 VSTEP", unit: "", description: "", tags: "" });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.success("Đã thêm tài liệu vào danh sách!");
+  }, [selectedFile, uploadForm, addLecture, user]);
 
   const filtered = useMemo(() =>
     lectures.filter(l =>
@@ -58,7 +134,7 @@ export function TeacherLectures() {
     ), [lectures, filterCourse, filterType, search]);
 
   const handleDelete = (id: string) => {
-    setLectures(prev => prev.filter(l => l.id !== id));
+    deleteLecture(id);
     toast.success("Đã xóa tài liệu");
     if (preview?.id === id) setPreview(null);
   };
@@ -208,36 +284,100 @@ export function TeacherLectures() {
 
       {/* Upload modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
-          <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setShowUpload(false); setSelectedFile(null); }}>
+          <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-bold text-[18px]">Tải lên tài liệu mới</h3>
-              <button onClick={() => setShowUpload(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+              <button onClick={() => { setShowUpload(false); setSelectedFile(null); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
-            <div className="border-2 border-dashed border-gray-200 dark:border-border rounded-2xl p-8 text-center mb-4 hover:border-emerald-400 transition-colors cursor-pointer">
-              <Upload className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-[14px] font-semibold text-muted-foreground">Kéo thả hoặc click để chọn file</p>
-              <p className="text-[12px] text-muted-foreground/60 mt-1">PDF, Word, PPT, Video — Tối đa 500MB</p>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.mov,.avi,.mkv,.webm"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {/* Drop area */}
+            <div
+              onClick={handleDropAreaClick}
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center mb-4 cursor-pointer transition-colors ${selectedFile ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10" : "border-gray-200 dark:border-border hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-500/5"}`}
+            >
+              {selectedFile ? (
+                <>
+                  <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                  <p className="text-[14px] font-bold text-emerald-700 dark:text-emerald-400 truncate">{selectedFile.name}</p>
+                  <p className="text-[12px] text-emerald-600/80 mt-0.5">{fmtBytes(selectedFile.size)}</p>
+                  <button onClick={e => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="mt-2 text-[12px] text-rose-500 underline">Xóa file</button>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-[14px] font-semibold text-muted-foreground">Kéo thả hoặc click để chọn file</p>
+                  <p className="text-[12px] text-muted-foreground/60 mt-1">PDF, Word, PPT, Video — Tối đa 500MB</p>
+                </>
+              )}
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-[13px] font-semibold mb-1">Tên tài liệu</label>
-                <input type="text" className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" placeholder="Nhập tên tài liệu..." />
+                <label className="block text-[13px] font-semibold mb-1">Tên tài liệu <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={e => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none focus:border-emerald-400"
+                  placeholder="Nhập tên tài liệu..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-semibold mb-1">Khóa học</label>
+                  <select
+                    value={uploadForm.course}
+                    onChange={e => setUploadForm(prev => ({ ...prev, course: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none"
+                  >
+                    {courses.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold mb-1">Bài / Unit</label>
+                  <input
+                    type="text"
+                    value={uploadForm.unit}
+                    onChange={e => setUploadForm(prev => ({ ...prev, unit: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none focus:border-emerald-400"
+                    placeholder="VD: Unit 3"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold mb-1">Khóa học</label>
-                <select className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none">
-                  {courses.map(c => <option key={c}>{c}</option>)}
-                </select>
+                <label className="block text-[13px] font-semibold mb-1">Thẻ tags <span className="text-muted-foreground font-normal">(cách nhau bởi dấu phẩy)</span></label>
+                <input
+                  type="text"
+                  value={uploadForm.tags}
+                  onChange={e => setUploadForm(prev => ({ ...prev, tags: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none focus:border-emerald-400"
+                  placeholder="VD: Grammar, Unit 3, Exercise"
+                />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold mb-1">Mô tả</label>
-                <textarea rows={2} className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none resize-none" />
+                <label className="block text-[13px] font-semibold mb-1">Mô tả ngắn</label>
+                <textarea
+                  rows={2}
+                  value={uploadForm.description}
+                  onChange={e => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none resize-none focus:border-emerald-400"
+                />
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowUpload(false)} className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-border rounded-xl text-[14px] font-semibold hover:bg-gray-50">Hủy</button>
-              <button onClick={() => { setShowUpload(false); toast.success("Đã tải lên tài liệu thành công"); }} className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-semibold">Lưu tài liệu</button>
+              <button onClick={() => { setShowUpload(false); setSelectedFile(null); }} className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-border rounded-xl text-[14px] font-semibold hover:bg-gray-50">Hủy</button>
+              <button onClick={handleSubmitUpload} className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2">
+                <Upload className="w-4 h-4"/> Lưu tài liệu
+              </button>
             </div>
           </div>
         </div>

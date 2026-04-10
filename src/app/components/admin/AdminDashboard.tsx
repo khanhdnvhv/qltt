@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardSkeleton } from "../ui/SkeletonLoaders";
 import { useDocumentTitle } from "../../utils/hooks";
 import { motion, AnimatePresence } from "motion/react";
@@ -11,14 +11,8 @@ import {
 } from "lucide-react";
 import { exportCsv } from "../../utils/csv-export";
 import { toast } from "sonner";
+import { useAppData } from "../../context/AppDataContext";
 
-// Mock Data cho GDNN-GDTX
-const deptStats = [
-  { icon: Users, label: "Tổng số Học viên", value: "45,847", change: "+12.5%", up: true, color: "#3b82f6", bg: "from-blue-50 to-indigo-50" },
-  { icon: Building2, label: "Trung tâm hoạt động", value: "112", change: "+3", up: true, color: "#10b981", bg: "from-emerald-50 to-teal-50" },
-  { icon: Award, label: "Chứng chỉ Cấp phát", value: "12,450", change: "+23.1%", up: true, color: "#f26522", bg: "from-orange-50 to-amber-50" },
-  { icon: FileText, label: "Văn bản Chỉ đạo Hủy/Phạt", value: "14", change: "-2.4%", up: false, color: "#dc2f3c", bg: "from-red-50 to-rose-50" },
-];
 
 const centerStats = [
   { icon: Users, label: "Học viên Đang học", value: "1,240", change: "+8.5%", up: true, color: "#3b82f6", bg: "from-blue-50 to-indigo-50" },
@@ -66,11 +60,29 @@ export function AdminDashboard() {
   useDocumentTitle("Báo cáo Thống kê");
   const { adminRole } = useOutletContext<{ adminRole: "department" | "center" }>();
   const isDepartment = adminRole === "department";
+  const { students, classes, trainingPlans, certificates } = useAppData();
 
   const [isLoading, setIsLoading] = useState(true);
   const [activityFilter, setActivityFilter] = useState<"all" | ActivityAction>("all");
   const maxAdmissions = Math.max(...monthlyAdmissions.map(r => r.value));
-  
+
+  const liveCenterStats = useMemo(() => [
+    { icon: Users, label: "Học viên Đang học", value: students.filter(s => s.status === "learning").length.toLocaleString(), change: "+8.5%", up: true, color: "#3b82f6", bg: "from-blue-50 to-indigo-50" },
+    { icon: BookOpen, label: "Lớp học Mở mới", value: classes.filter(c => c.status === "Hoạt động" || c.status === "Tuyển sinh").length.toString(), change: "+5", up: true, color: "#10b981", bg: "from-emerald-50 to-teal-50" },
+    { icon: FileText, label: "Kế hoạch Chờ duyệt", value: trainingPlans.filter(p => p.status === "pending").length.toString(), change: "0%", up: true, color: "#f26522", bg: "from-orange-50 to-amber-50" },
+    { icon: GraduationCap, label: "Học viên Nghỉ học", value: students.filter(s => s.status === "dropped" || s.status === "suspended").length.toString(), change: "+10%", up: false, color: "#dc2f3c", bg: "from-red-50 to-rose-50" },
+  ], [students, classes, trainingPlans]);
+
+  const liveDeptStats = useMemo(() => {
+    const pendingPlans = trainingPlans.filter(p => p.status === "pending" || p.status === "revision").length;
+    return [
+      { icon: Users, label: "Tổng số Học viên", value: students.length.toLocaleString(), change: "+12.5%", up: true, color: "#3b82f6", bg: "from-blue-50 to-indigo-50" },
+      { icon: Building2, label: "Lớp đang hoạt động", value: classes.filter(c => c.status === "Hoạt động" || c.status === "Tuyển sinh").length.toString(), change: "+3", up: true, color: "#10b981", bg: "from-emerald-50 to-teal-50" },
+      { icon: Award, label: "Chứng chỉ Cấp phát", value: certificates.filter(c => c.status === "ISSUED").length.toLocaleString(), change: "+23.1%", up: true, color: "#f26522", bg: "from-orange-50 to-amber-50" },
+      { icon: FileText, label: "Kế hoạch Chờ duyệt", value: pendingPlans.toString(), change: pendingPlans > 0 ? `+${pendingPlans}` : "0", up: pendingPlans === 0, color: "#dc2f3c", bg: "from-red-50 to-rose-50" },
+    ];
+  }, [students, classes, certificates, trainingPlans]);
+
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 500);
     return () => clearTimeout(timer);
@@ -78,7 +90,7 @@ export function AdminDashboard() {
 
   if (isLoading) return <DashboardSkeleton />;
 
-  const displayStats = isDepartment ? deptStats : centerStats;
+  const displayStats = isDepartment ? liveDeptStats : liveCenterStats;
 
   return (
     <div>

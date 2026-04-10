@@ -2,9 +2,25 @@ import { useState, useMemo } from "react";
 import { useDocumentTitle, useEscapeKey } from "../../utils/hooks";
 import { useUrlPagination } from "../../utils/useUrlPagination";
 import { AnimatePresence, motion } from "motion/react";
-import { Search, UserX, Plus, X, AlertTriangle, Eye, CheckCircle } from "lucide-react";
+import { Search, UserX, Plus, X, AlertTriangle, CheckCircle, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { Pagination } from "./Pagination";
+import { useAppData } from "../../context/AppDataContext";
+
+// Refund calculation formula per policy
+function calcRefund(baseFee: number, completedPercent: number): number {
+  if (completedPercent < 25) return Math.round(baseFee * 0.80);
+  if (completedPercent < 50) return Math.round(baseFee * 0.60);
+  if (completedPercent < 75) return Math.round(baseFee * 0.40);
+  return 0; // >= 75% — no refund
+}
+
+function refundLabel(completedPercent: number): string {
+  if (completedPercent < 25) return "Hoàn 80% (học dưới 25%)";
+  if (completedPercent < 50) return "Hoàn 60% (học 25–50%)";
+  if (completedPercent < 75) return "Hoàn 40% (học 50–75%)";
+  return "Không hoàn (đã học ≥ 75%)";
+}
 
 interface DropoutRecord {
   id: string;
@@ -21,11 +37,6 @@ interface DropoutRecord {
   status: "pending" | "confirmed";
 }
 
-const records: DropoutRecord[] = [
-  { id: "1", studentName: "Phạm Bình Minh", studentCode: "HV-26-0004", course: "Kỹ thuật Hàn Điện Cơ bản", enrollDate: "10/01/2026", dropoutDate: "25/02/2026", completedPercent: 50, reason: "Việc làm", refundAmount: 1600000, note: "Được nhận vào làm không thể thu xếp lịch học", processedBy: "Giám đốc TT", status: "confirmed" },
-  { id: "2", studentName: "Ngô Đức Long", studentCode: "HV-26-0039", course: "Tin học IC3", enrollDate: "05/01/2026", dropoutDate: "15/03/2026", completedPercent: 75, reason: "Học không hiệu quả", refundAmount: 0, note: "Đã học >75% — không hoàn phí theo quy định", processedBy: "Nguyễn Thị Thanh", status: "confirmed" },
-  { id: "3", studentName: "Đinh Thị Nhung", studentCode: "HV-26-0022", course: "Tiếng Nhật N4", enrollDate: "15/03/2026", dropoutDate: "10/04/2026", completedPercent: 15, reason: "Tài chính", refundAmount: 4080000, note: "Học được 3 buổi — hoàn 85% học phí", processedBy: "", status: "pending" },
-];
 
 const reasonColor: Record<string, string> = {
   "Tài chính": "text-rose-600 bg-rose-500/10",
@@ -38,13 +49,19 @@ const reasonColor: Record<string, string> = {
 
 export function AdminStudentDropout() {
   useDocumentTitle("Thôi học");
-  const [data, setData] = useState<DropoutRecord[]>(records);
+  const { dropoutRecords: data, addDropoutRecord, confirmDropout: confirmDropoutAction, students: storeStudents, enrollments } = useAppData();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const { page, pageSize, setPage } = useUrlPagination();
   const [addOpen, setAddOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [form, setForm] = useState({ studentName: "", studentCode: "", course: "", completedPercent: 0, reason: "Tài chính" as DropoutRecord["reason"], refundAmount: 0, note: "" });
+  const [form, setForm] = useState({
+    studentName: "", studentCode: "", course: "",
+    completedPercent: 0, baseFee: 4800000,
+    reason: "Tài chính" as DropoutRecord["reason"], note: "",
+  });
+
+  const autoRefund = calcRefund(form.baseFee, form.completedPercent);
 
   useEscapeKey(() => { setAddOpen(false); setConfirmId(null); }, addOpen || !!confirmId);
 
@@ -63,27 +80,31 @@ export function AdminStudentDropout() {
 
   const handleAdd = () => {
     if (!form.studentName || !form.course) { toast.error("Vui lòng điền đủ thông tin"); return; }
-    const newRecord: DropoutRecord = {
-      id: String(data.length + 1),
-      enrollDate: "01/01/2026",
-      dropoutDate: new Date().toLocaleDateString("vi-VN"),
-      processedBy: "",
-      status: "pending",
+    const matchStudent = storeStudents.find(s =>
+      s.name.toLowerCase() === form.studentName.toLowerCase() || s.code === form.studentCode
+    );
+    const matchEnroll = matchStudent ? enrollments.find(e => e.studentId === matchStudent.id && e.status === "active") : undefined;
+    addDropoutRecord({
+      studentId: matchStudent?.id ?? "",
+      studentCode: form.studentCode || matchStudent?.code || `HV-26-${String(Math.floor(Math.random() * 900 + 100))}`,
       studentName: form.studentName,
-      studentCode: form.studentCode || `HV-26-${String(Math.floor(Math.random() * 900 + 100))}`,
-      course: form.course,
+      courseId: matchEnroll?.courseId ?? "",
+      courseName: form.course,
+      enrollDate: matchEnroll?.enrollDate ?? "01/01/2026",
+      dropoutDate: new Date().toLocaleDateString("vi-VN"),
       completedPercent: form.completedPercent,
       reason: form.reason,
-      refundAmount: form.refundAmount,
-      note: form.note,
-    };
-    setData(prev => [newRecord, ...prev]);
+      refundAmount: autoRefund,
+      note: form.note || refundLabel(form.completedPercent),
+      processedBy: "",
+      status: "pending",
+    });
     setAddOpen(false);
     toast.success("Đã tạo yêu cầu thôi học — chờ phê duyệt");
   };
 
   const handleConfirm = (id: string) => {
-    setData(prev => prev.map(d => d.id === id ? { ...d, status: "confirmed" as const, processedBy: "Admin" } : d));
+    confirmDropoutAction(id, "Admin");
     setConfirmId(null);
     toast.success("Đã xác nhận thôi học");
   };
@@ -155,7 +176,7 @@ export function AdminStudentDropout() {
                     </div>
                   </td>
                   <td className="px-4 py-3.5 hidden md:table-cell">
-                    <p className="font-medium text-[13px]">{r.course}</p>
+                    <p className="font-medium text-[13px]">{r.courseName}</p>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold mt-0.5 ${reasonColor[r.reason]}`}>{r.reason}</span>
                   </td>
                   <td className="px-4 py-3.5 hidden lg:table-cell text-center">
@@ -208,7 +229,7 @@ export function AdminStudentDropout() {
               <div className="w-14 h-14 bg-rose-100 dark:bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-7 h-7 text-rose-500" /></div>
               <h3 className="text-[18px] font-bold mb-2 text-[#1a1a2e] dark:text-foreground">Xác nhận Thôi học</h3>
               <p className="text-[14px] text-muted-foreground mb-1"><strong className="text-[#1a1a2e] dark:text-foreground">{confirmItem.studentName}</strong></p>
-              <p className="text-[13px] text-muted-foreground mb-1">{confirmItem.course}</p>
+              <p className="text-[13px] text-muted-foreground mb-1">{confirmItem.courseName}</p>
               {confirmItem.refundAmount > 0 && (
                 <p className="text-[14px] font-semibold text-emerald-600 my-2">Hoàn trả: {confirmItem.refundAmount.toLocaleString("vi-VN")}đ</p>
               )}
@@ -239,11 +260,37 @@ export function AdminStudentDropout() {
                 </div>
                 <div><label className="block text-[13px] font-semibold mb-1.5">Khóa học *</label><input value={form.course} onChange={e => setForm(f => ({ ...f, course: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-[13px] font-semibold mb-1.5">Đã học (%)</label><input type="number" min={0} max={100} value={form.completedPercent} onChange={e => setForm(f => ({ ...f, completedPercent: +e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" /></div>
-                  <div><label className="block text-[13px] font-semibold mb-1.5">Lý do</label><select value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value as DropoutRecord["reason"] }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none"><option>Tài chính</option><option>Sức khỏe</option><option>Việc làm</option><option>Học không hiệu quả</option><option>Cá nhân</option><option>Khác</option></select></div>
+                  <div>
+                    <label className="block text-[13px] font-semibold mb-1.5">Đã học (%)</label>
+                    <input type="number" min={0} max={100} value={form.completedPercent} onChange={e => setForm(f => ({ ...f, completedPercent: +e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-semibold mb-1.5">Lý do</label>
+                    <select value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value as DropoutRecord["reason"] }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none">
+                      <option>Tài chính</option><option>Sức khỏe</option><option>Việc làm</option>
+                      <option>Học không hiệu quả</option><option>Cá nhân</option><option>Khác</option>
+                    </select>
+                  </div>
                 </div>
-                <div><label className="block text-[13px] font-semibold mb-1.5">Số tiền hoàn trả (đồng)</label><input type="number" value={form.refundAmount} onChange={e => setForm(f => ({ ...f, refundAmount: +e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" /></div>
-                <div><label className="block text-[13px] font-semibold mb-1.5">Ghi chú</label><textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none resize-none" /></div>
+                <div>
+                  <label className="block text-[13px] font-semibold mb-1.5">Học phí gốc (đồng)</label>
+                  <input type="number" step={100000} value={form.baseFee} onChange={e => setForm(f => ({ ...f, baseFee: +e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none" />
+                </div>
+                {/* Auto-calculated refund display */}
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calculator className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[13px] font-semibold text-emerald-700 dark:text-emerald-400">Tính toán tự động</span>
+                  </div>
+                  <p className="text-[12px] text-emerald-600 dark:text-emerald-400/80">{refundLabel(form.completedPercent)}</p>
+                  <p className="text-[16px] font-bold text-emerald-700 dark:text-emerald-400 mt-1">
+                    {autoRefund > 0 ? `Hoàn: ${autoRefund.toLocaleString("vi-VN")}đ` : "Không hoàn học phí"}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold mb-1.5">Ghi chú</label>
+                  <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none resize-none" />
+                </div>
               </div>
               <div className="p-5 border-t border-gray-100 dark:border-border flex gap-3">
                 <button onClick={() => setAddOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-border text-[14px] font-semibold hover:bg-gray-50 dark:hover:bg-white/5">Hủy</button>

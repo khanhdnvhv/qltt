@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDocumentTitle, useEscapeKey } from "../../utils/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -6,6 +6,7 @@ import {
   User, BookOpen, CreditCard, Printer, CheckCircle, GraduationCap
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAppData } from "../../context/AppDataContext";
 
 const courses = [
   { id: "C001", name: "Tiếng Anh B1 VSTEP Cấp tốc", fee: 3500000, duration: "3 tháng", slots: 5, startDate: "01/04/2026" },
@@ -28,6 +29,7 @@ const steps = ["Thông tin học viên", "Chọn khóa học", "Xác nhận & Th
 
 export function AdminStudentEnrollment() {
   useDocumentTitle("Nhập học");
+  const { addStudent, addEnrollment, addFeeReceipt, enrollments, students } = useAppData();
   const [step, setStep] = useState(0);
   const [searchExisting, setSearchExisting] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<typeof courses[0] | null>(null);
@@ -49,6 +51,66 @@ export function AdminStudentEnrollment() {
   };
 
   const handleSubmit = () => {
+    if (!selectedCourse) return;
+    const student = addStudent({
+      code: newCode,
+      name: formData.name,
+      dob: formData.dob || "01/01/2000",
+      gender: (formData.gender === "Nam" || formData.gender === "Nữ") ? formData.gender : "Nam",
+      phone: formData.phone,
+      email: formData.email,
+      address: formData.address,
+      idNumber: formData.idNumber,
+      parentName: formData.parentName,
+      parentPhone: formData.parentPhone,
+      status: "learning",
+      programs: [selectedCourse.name],
+      avatarColor: "from-blue-600 to-indigo-600",
+      progress: 0,
+      enrollDate: new Date().toLocaleDateString("vi-VN"),
+    });
+    addEnrollment({
+      studentId: student.id,
+      studentCode: student.code,
+      studentName: student.name,
+      classId: selectedCourse.id,
+      classCode: selectedCourse.id,
+      courseId: selectedCourse.id,
+      courseName: selectedCourse.name,
+      teacherName: "—",
+      schedule: "—",
+      room: "—",
+      enrollDate: new Date().toLocaleDateString("vi-VN"),
+      startDate: selectedCourse.startDate,
+      endDate: "—",
+      fee: selectedCourse.fee,
+      discountAmount,
+      finalFee: finalAmount,
+      paymentMethod,
+      status: "active",
+      progress: 0,
+      completedLessons: 0,
+      totalLessons: 24,
+      attendanceRate: 100,
+      color: "from-blue-500 to-indigo-500",
+    });
+    addFeeReceipt({
+      receiptCode: `PT-${new Date().getFullYear()}-${String(enrollments.length + 1).padStart(4, "0")}`,
+      studentId: student.id,
+      studentCode: student.code,
+      studentName: student.name,
+      courseId: selectedCourse.id,
+      courseName: selectedCourse.name,
+      periodName: `Học phí Kỳ 1 - ${selectedCourse.name}`,
+      amount: selectedCourse.fee,
+      discountAmount,
+      finalAmount,
+      paymentMethod,
+      paidDate: new Date().toLocaleDateString("vi-VN"),
+      receivedBy: "Admin",
+      note: "",
+      status: "confirmed",
+    });
     setSubmitted(true);
     toast.success(`Nhập học thành công! Mã học viên: ${newCode}`);
   };
@@ -196,17 +258,17 @@ export function AdminStudentEnrollment() {
         <div>
           <h3 className="text-[15px] font-bold text-[#1a1a2e] dark:text-foreground mb-3">Nhập học gần đây</h3>
           <div className="space-y-2">
-            {recentEnrollments.map(e => (
-              <div key={e.code} className="bg-white dark:bg-card border border-gray-100 dark:border-border rounded-xl p-3">
+            {enrollments.slice(0, 6).map(e => (
+              <div key={e.id} className="bg-white dark:bg-card border border-gray-100 dark:border-border rounded-xl p-3">
                 <div className="flex items-start gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0">{e.name.charAt(0)}</div>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0">{e.studentName.charAt(0)}</div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-[13px] text-[#1a1a2e] dark:text-foreground truncate">{e.name}</p>
-                    <p className="text-[11px] font-mono text-muted-foreground">{e.code}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{e.course}</p>
+                    <p className="font-semibold text-[13px] text-[#1a1a2e] dark:text-foreground truncate">{e.studentName}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground">{e.studentCode}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{e.courseName}</p>
                     <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-[10px] text-muted-foreground">{e.date}</p>
-                      <p className="text-[11px] font-bold text-blue-600">{e.fee}</p>
+                      <p className="text-[10px] text-muted-foreground">{e.enrollDate}</p>
+                      <p className="text-[11px] font-bold text-blue-600">{e.finalFee.toLocaleString("vi-VN")}đ</p>
                     </div>
                   </div>
                 </div>

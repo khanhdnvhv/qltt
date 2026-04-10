@@ -97,10 +97,10 @@ export function OfflinePage() {
             className="text-[24px] sm:text-[28px] text-[#1a1a2e] dark:text-foreground mb-2 tracking-tight"
             style={{ fontWeight: 800 }}
           >
-            Khong co ket noi mang
+            Không có kết nối mạng
           </h1>
           <p className="text-muted-foreground text-[16px] max-w-sm mx-auto leading-relaxed">
-            Vui long kiem tra lai ket noi internet cua ban.
+            Vui lòng kiểm tra lại kết nối internet của bạn.
             Trang se tu dong tai lai khi co ket noi.
           </p>
         </motion.div>

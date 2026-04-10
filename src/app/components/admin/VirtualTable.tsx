@@ -93,7 +93,7 @@ export function VirtualTable<T>({
   onSelectRow,
   onSelectAll,
   showCheckbox = false,
-  emptyMessage = "Khong co du lieu",
+  emptyMessage = "Không có dữ liệu",
   defaultSortKey,
   defaultSortDir = null,
   resizableColumns = false,

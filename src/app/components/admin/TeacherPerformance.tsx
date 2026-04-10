@@ -53,10 +53,10 @@ export function TeacherPerformance({ teachers }: Props) {
   const maxClasses = Math.max(...activeTeachers.map((t) => t.classes));
 
   const radarData = [
-    { metric: "Hoc vien", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.students / maxStudents) * 100)])) },
-    { metric: "Danh gia", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.rating / 5) * 100)])) },
-    { metric: "Luot review", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.reviewCount / maxReviews) * 100)])) },
-    { metric: "So lop", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.classes / maxClasses) * 100)])) },
+    { metric: "Học viên", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.students / maxStudents) * 100)])) },
+    { metric: "Đánh giá", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.rating / 5) * 100)])) },
+    { metric: "Lượt review", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.reviewCount / maxReviews) * 100)])) },
+    { metric: "Số lớp", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.classes / maxClasses) * 100)])) },
     { metric: "Level Score", ...Object.fromEntries(activeTeachers.map((t) => [t.id, Math.round((t.levelScore / 10) * 100)])) },
   ];
 
@@ -169,7 +169,7 @@ export function TeacherPerformance({ teachers }: Props) {
                 contentStyle={{ borderRadius: 12, fontSize: 12, border: "1px solid #e5e7eb" }}
                 labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
               />
-              <Bar dataKey="students" name="Hoc vien" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
+              <Bar dataKey="students" name="Học viên" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
               <Bar dataKey="classes" name="Lop hoc" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
             </BarChart>
           </ResponsiveContainer>

@@ -8,31 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Pagination } from "./Pagination";
-
-interface FeeRefund {
-  id: string;
-  refundCode: string;
-  studentName: string;
-  studentCode: string;
-  reason: "Bảo lưu" | "Thôi học" | "Lỗi hệ thống" | "Khác";
-  originalAmount: number;
-  refundPercent: number;
-  refundAmount: number;
-  paymentMethod: "Tiền mặt" | "Chuyển khoản";
-  refundDate: string;
-  approvedBy: string;
-  note: string;
-  status: "pending" | "approved" | "paid" | "rejected";
-}
-
-const refunds: FeeRefund[] = [
-  { id: "1", refundCode: "PT-R-001", studentName: "Lý Gia Hân", studentCode: "HV-26-0003", reason: "Bảo lưu", originalAmount: 3200000, refundPercent: 70, refundAmount: 2240000, paymentMethod: "Tiền mặt", refundDate: "20/02/2026", approvedBy: "Nguyễn Thị Thanh", note: "Bảo lưu 6 tháng theo chính sách TT", status: "paid" },
-  { id: "2", refundCode: "PT-R-002", studentName: "Phạm Bình Minh", studentCode: "HV-26-0004", reason: "Thôi học", originalAmount: 3200000, refundPercent: 50, refundAmount: 1600000, paymentMethod: "Chuyển khoản", refundDate: "25/02/2026", approvedBy: "Giám đốc TT", note: "Thôi học sau tuần 6 — hoàn 50% học phí còn lại", status: "paid" },
-  { id: "3", refundCode: "PT-R-003", studentName: "Trương Minh Khoa", studentCode: "HV-26-0018", reason: "Bảo lưu", originalAmount: 4200000, refundPercent: 80, refundAmount: 3360000, paymentMethod: "Chuyển khoản", refundDate: "01/03/2026", approvedBy: "Nguyễn Thị Thanh", note: "Bảo lưu lý do bệnh — có giấy tờ y tế", status: "approved" },
-  { id: "4", refundCode: "PT-R-004", studentName: "Đinh Thị Nhung", studentCode: "HV-26-0022", reason: "Thôi học", originalAmount: 4800000, refundPercent: 30, refundAmount: 1440000, paymentMethod: "Tiền mặt", refundDate: "10/03/2026", approvedBy: "", note: "Thôi học tuần thứ 10 — hoàn theo bậc thang", status: "pending" },
-  { id: "5", refundCode: "PT-R-005", studentName: "Bùi Thị Cẩm Tú", studentCode: "HV-26-0031", reason: "Lỗi hệ thống", originalAmount: 2800000, refundPercent: 100, refundAmount: 2800000, paymentMethod: "Chuyển khoản", refundDate: "12/03/2026", approvedBy: "Phạm Văn Hùng", note: "Thu trùng 2 lần — hoàn toàn bộ lần thu 2", status: "approved" },
-  { id: "6", refundCode: "PT-R-006", studentName: "Ngô Đức Long", studentCode: "HV-26-0039", reason: "Thôi học", originalAmount: 3500000, refundPercent: 0, refundAmount: 0, paymentMethod: "Tiền mặt", refundDate: "14/03/2026", approvedBy: "Giám đốc TT", note: "Thôi học sau 80% khóa — không hoàn phí theo quy định", status: "rejected" },
-];
+import { useAppData, type AppFeeRefund as FeeRefund } from "../../context/AppDataContext";
 
 const statusCfg = {
   pending: { label: "Chờ duyệt", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
@@ -52,7 +28,7 @@ const fmt = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
 export function AdminFeeRefunds() {
   useDocumentTitle("Phiếu Trả Học phí");
-  const [data, setData] = useState<FeeRefund[]>(refunds);
+  const { feeRefunds: data, addFeeRefund, updateFeeRefundStatus } = useAppData();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const { page, pageSize, setPage } = useUrlPagination();
@@ -82,28 +58,27 @@ export function AdminFeeRefunds() {
   };
 
   const handleApprove = (id: string) => {
-    setData(prev => prev.map(d => d.id === id ? { ...d, status: "approved" as const, approvedBy: "Admin" } : d));
+    updateFeeRefundStatus(id, "approved", "Admin");
     toast.success("Đã duyệt phiếu hoàn trả");
   };
 
   const handleMarkPaid = (id: string) => {
-    setData(prev => prev.map(d => d.id === id ? { ...d, status: "paid" as const } : d));
+    updateFeeRefundStatus(id, "paid");
     toast.success("Đã xác nhận hoàn trả tiền");
   };
 
   const handleAdd = () => {
     if (!form.studentName || form.originalAmount <= 0) { toast.error("Vui lòng điền đầy đủ"); return; }
     const refundAmt = Math.round(form.originalAmount * form.refundPercent / 100);
-    const newItem: FeeRefund = {
-      id: String(data.length + 1),
+    addFeeRefund({
       refundCode: `PT-R-${String(data.length + 1).padStart(3, "0")}`,
+      studentId: "",
       refundAmount: refundAmt,
       refundDate: new Date().toLocaleDateString("vi-VN"),
       approvedBy: "",
       status: "pending",
       ...form,
-    };
-    setData(prev => [newItem, ...prev]);
+    });
     setAddOpen(false);
     toast.success("Đã tạo phiếu hoàn trả — chờ phê duyệt");
   };

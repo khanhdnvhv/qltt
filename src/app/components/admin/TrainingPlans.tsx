@@ -13,32 +13,9 @@ import { VirtualTable, type VirtualTableColumn } from "./VirtualTable";
 import { toast } from "sonner";
 import { HighlightText } from "../ui/HighlightText";
 import { Pagination } from "./Pagination";
+import { useAppData, type AppTrainingPlan } from "../../context/AppDataContext";
 
-interface MockPlan {
-  id: string;
-  title: string;
-  centerName: string;
-  type: "Ngôn ngữ" | "Tin học" | "GDNN" | "GDTX" | "Tổng hợp";
-  term: string;
-  expectedStudents: number;
-  submittedAt: string | null;
-  status: "draft" | "pending" | "revision" | "approved" | "rejected";
-  files: string[];
-  history: { action: string; time: string; actor: string }[];
-  comments: string;
-}
-
-const generatePlans = (): MockPlan[] => {
-  return [
-    { id: "KH-26-001", title: "Kế hoạch Chỉ tiêu Ngoại ngữ Q1/2026", centerName: "Trung tâm Ngoại ngữ VUS", type: "Ngôn ngữ", term: "Q1/2026", expectedStudents: 1500, submittedAt: "05/01/2026", status: "approved", files: ["To_trinh_Q1_2026.pdf"], history: [{ action: "Sở GD đã phê duyệt", time: "06/01/2026 09:00", actor: "Sở GD&ĐT" }], comments: "" },
-    { id: "KH-26-002", title: "Kế hoạch Phổ cập THCS & THPT", centerName: "TT GDNN-GDTX Quận 1", type: "GDTX", term: "Năm 2026", expectedStudents: 850, submittedAt: "10/01/2026", status: "pending", files: ["De_an_tuyen_sinh_2026.pdf", "Danh_sach_dinh_kem.xlsx"], history: [{ action: "Đã trình Sở chờ thẩm định", time: "10/01/2026 14:30", actor: "Giám đốc TT Q1" }], comments: "" },
-    { id: "KH-26-003", title: "Đề án Mở lớp Sửa chữa Ô Tô", centerName: "TT GDNN-GDTX Tân Bình", type: "GDNN", term: "Năm 2026", expectedStudents: 200, submittedAt: "12/01/2026", status: "revision", files: ["De_cuong_Mon_Hoc.pdf"], history: [{ action: "Sở yêu cầu bổ sung CSVC", time: "13/01/2026 10:15", actor: "Phòng Chuyên môn" }], comments: "Đề nghị Trung tâm Tân Bình cập nhật lại danh sách Xưởng thực hành máy đáp ứng đủ quy chuẩn đào tạo Nghề hạng 2." },
-    { id: "KH-26-004", title: "Kế hoạch Bồi dưỡng CNTT Cơ bản", centerName: "Trung tâm Tin Học Hùng Vương", type: "Tin học", term: "Q1/2026", expectedStudents: 350, submittedAt: null, status: "draft", files: [], history: [{ action: "Tạo mới bản nháp", time: "15/01/2026 08:00", actor: "Giáo vụ TT" }], comments: "" },
-    { id: "KH-26-005", title: "Kế hoạch Liên kết đào tạo Tiếng Nhật", centerName: "Ngoại ngữ Sakura", type: "Ngôn ngữ", term: "Năm 2026", expectedStudents: 400, submittedAt: "16/01/2026", status: "pending", files: ["Hop_dong_lien_ket.pdf"], history: [{ action: "Gửi phê duyệt", time: "16/01/2026 11:20", actor: "Trung tâm" }], comments: "" },
-  ];
-};
-
-const initialPlans = generatePlans();
+type MockPlan = AppTrainingPlan;
 
 const statusProps: Record<string, { bg: string; text: string; dot: string; label: string; icon: any }> = {
   draft: { bg: "bg-gray-100 dark:bg-white/5", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-400", label: "Bản nháp", icon: FileText },
@@ -53,7 +30,7 @@ export function TrainingPlans() {
   const { adminRole } = useOutletContext<{ adminRole: "department" | "center" | "teacher" | "student" }>();
   const isDepartment = adminRole === "department";
 
-  const [plans, setPlans] = useState<MockPlan[]>(initialPlans);
+  const { trainingPlans: plans, updateTrainingPlan, addTrainingPlan } = useAppData();
   const [search, setSearch] = useState("");
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const { page, pageSize, setPage, setPageSize } = useUrlPagination();
@@ -94,13 +71,10 @@ export function TrainingPlans() {
 
   // Actions
   const handleApprove = (id: string, decision: "approved" | "revision" | "rejected") => {
-    setPlans(prev => prev.map(p => {
-      if (p.id === id) {
-        const historyUpdate = [{ action: decision === 'approved' ? 'Sở GD đã phê duyệt hệ thống' : decision === 'revision' ? 'Sở GD yêu cầu bổ sung' : 'Sở GD Từ chối cấp phép', time: new Date().toLocaleString('vi-VN'), actor: 'Sở GDĐT' }, ...p.history];
-        return { ...p, status: decision, comments: reviewNote, history: historyUpdate };
-      }
-      return p;
-    }));
+    const plan = plans.find(p => p.id === id);
+    if (!plan) return;
+    const historyUpdate = [{ action: decision === 'approved' ? 'Sở GD đã phê duyệt hệ thống' : decision === 'revision' ? 'Sở GD yêu cầu bổ sung' : 'Sở GD Từ chối cấp phép', time: new Date().toLocaleString('vi-VN'), actor: 'Sở GDĐT' }, ...plan.history];
+    updateTrainingPlan(id, { status: decision, comments: reviewNote, history: historyUpdate });
     toast.success(decision === "approved" ? "Đã ký số phê duyệt Kế hoạch." : decision === "revision" ? "Đã gửi Yêu cầu chỉnh sửa lại Kế hoạch." : "Đã từ chối cấp phép.");
     setReviewPlanId(null);
     setReviewNote("");
@@ -110,11 +84,10 @@ export function TrainingPlans() {
 
   const handleCreatePlan = (submit: boolean) => {
     if (!newPlanData.title) return toast.error("Vui lòng nhập Tên Kế hoạch");
-    const newPlan: MockPlan = {
-      id: `KH-26-00${plans.length + 1}`,
+    addTrainingPlan({
       title: newPlanData.title,
-      centerName: "Trung tâm Demo Vận Hành", 
-      type: newPlanData.type as any,
+      centerName: "Trung tâm Demo Vận Hành",
+      type: newPlanData.type as MockPlan["type"],
       term: newPlanData.term,
       expectedStudents: newPlanData.expectedStudents,
       submittedAt: submit ? new Date().toLocaleDateString("vi-VN") : null,
@@ -122,8 +95,7 @@ export function TrainingPlans() {
       files: ["To_trinh_Moi.pdf"],
       history: [{ action: submit ? "Trình duyệt lên Sở" : "Tạo bản nháp", time: new Date().toLocaleString('vi-VN'), actor: "Trung tâm" }],
       comments: ""
-    };
-    setPlans([newPlan, ...plans]);
+    });
     setNewPlanOpen(false);
     toast.success(submit ? "Đã đệ trình Văn bản Số lên Sở GD&ĐT!" : "Đã lưu Nháp thành công, có thể chỉnh sửa đệ trình sau.");
     setNewPlanData({ title: "", type: "Ngôn ngữ", term: "Q1/2026", expectedStudents: 0 });

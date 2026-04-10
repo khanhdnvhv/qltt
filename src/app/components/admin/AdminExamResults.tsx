@@ -1,64 +1,36 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useDocumentTitle } from "../../utils/hooks";
 import { useUrlFilters } from "../../utils/useUrlFilters";
 import { useUrlPagination } from "../../utils/useUrlPagination";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Search, Download, CheckCircle, XCircle, Filter,
-  Award, TrendingUp, Users, BarChart3, Edit2, Save, X, AlertCircle, RefreshCw
+  Search, Download, CheckCircle, XCircle,
+  TrendingUp, Users, Edit2, Save, X, AlertCircle, RefreshCw,
+  Upload, Lock, LockOpen
 } from "lucide-react";
 import { toast } from "sonner";
 import { Pagination } from "./Pagination";
-
-interface ExamResult {
-  id: string;
-  candidateCode: string;
-  studentName: string;
-  examCode: string;
-  examName: string;
-  subject: string;
-  score: number | null;
-  maxScore: number;
-  passScore: number;
-  status: "pending" | "pass" | "fail" | "appeal";
-  examDate: string;
-  note: string;
-}
-
-const results: ExamResult[] = [
-  { id: "1", candidateCode: "SBD-001", studentName: "Nguyễn Trung Tín", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 6.5, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "2", candidateCode: "SBD-002", studentName: "Trần Mai Anh", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 4.0, maxScore: 10, passScore: 5, status: "fail", examDate: "15/03/2026", note: "" },
-  { id: "3", candidateCode: "SBD-003", studentName: "Lý Gia Hân", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 7.5, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "4", candidateCode: "SBD-004", studentName: "Phạm Bình Minh", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 5.0, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "5", candidateCode: "SBD-005", studentName: "Hoàng Thanh Thảo", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 8.0, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "6", candidateCode: "SBD-006", studentName: "Lê Minh Trí", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 3.5, maxScore: 10, passScore: 5, status: "fail", examDate: "15/03/2026", note: "Phúc khảo" },
-  { id: "7", candidateCode: "SBD-007", studentName: "Đỗ Xuân Trường", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: null, maxScore: 10, passScore: 5, status: "pending", examDate: "15/03/2026", note: "Vắng thi" },
-  { id: "8", candidateCode: "SBD-008", studentName: "Vũ Ngọc Trâm", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 9.0, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "9", candidateCode: "SBD-009", studentName: "Nguyễn Xuân Phúc", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 6.0, maxScore: 10, passScore: 5, status: "pass", examDate: "15/03/2026", note: "" },
-  { id: "10", candidateCode: "SBD-010", studentName: "Đinh Thị Nhung", examCode: "KT-26-001", examName: "Tiếng Anh B1 VSTEP", subject: "Tiếng Anh", score: 4.5, maxScore: 10, passScore: 5, status: "fail", examDate: "15/03/2026", note: "" },
-  { id: "11", candidateCode: "SBD-011", studentName: "Trương Minh Khoa", examCode: "KT-26-002", examName: "Tin học IC3", subject: "Tin học", score: 8.5, maxScore: 10, passScore: 7, status: "pass", examDate: "20/02/2026", note: "" },
-  { id: "12", candidateCode: "SBD-012", studentName: "Lưu Thị Hoa", examCode: "KT-26-002", examName: "Tin học IC3", subject: "Tin học", score: 6.5, maxScore: 10, passScore: 7, status: "fail", examDate: "20/02/2026", note: "" },
-  { id: "13", candidateCode: "SBD-013", studentName: "Phạm Hoàng Nam", examCode: "KT-26-002", examName: "Tin học IC3", subject: "Tin học", score: 7.0, maxScore: 10, passScore: 7, status: "pass", examDate: "20/02/2026", note: "" },
-  { id: "14", candidateCode: "SBD-014", studentName: "Bùi Thị Cẩm Tú", examCode: "KT-26-002", examName: "Tin học IC3", subject: "Tin học", score: 9.5, maxScore: 10, passScore: 7, status: "pass", examDate: "20/02/2026", note: "" },
-  { id: "15", candidateCode: "SBD-015", studentName: "Ngô Đức Long", examCode: "KT-26-002", examName: "Tin học IC3", subject: "Tin học", score: 5.0, maxScore: 10, passScore: 7, status: "fail", examDate: "20/02/2026", note: "Phúc khảo" },
-];
-
-const examOptions = [...new Set(results.map(r => r.examCode))];
+import { useAppData } from "../../context/AppDataContext";
 
 export function AdminExamResults() {
   useDocumentTitle("Kết quả Thi");
-  const [data, setData] = useState<ExamResult[]>(results);
+  const { examResults: data, updateExamResult } = useAppData();
   const [search, setSearch] = useState("");
   const [filters, setFilter] = useUrlFilters({ status: "all", exam: "all" });
   const { page, pageSize, setPage } = useUrlPagination();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScore, setEditScore] = useState<string>("");
+  const [lockedExams, setLockedExams] = useState<Set<string>>(new Set());
+  const [csvPreview, setCsvPreview] = useState<{ code: string; score: number }[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const examOptions = useMemo(() => [...new Set(data.map(r => r.examPlanId))], [data]);
 
   const filtered = useMemo(() => data.filter(r => {
     const s = search.toLowerCase();
-    const matchSearch = !search || r.studentName.toLowerCase().includes(s) || r.candidateCode.toLowerCase().includes(s);
+    const matchSearch = !search || r.studentName.toLowerCase().includes(s) || r.seatNo.toLowerCase().includes(s);
     const matchStatus = filters.status === "all" || r.status === filters.status;
-    const matchExam = filters.exam === "all" || r.examCode === filters.exam;
+    const matchExam = filters.exam === "all" || r.examPlanId === filters.exam;
     return matchSearch && matchStatus && matchExam;
   }), [data, search, filters]);
 
@@ -77,13 +49,60 @@ export function AdminExamResults() {
   const saveScore = (id: string) => {
     const score = parseFloat(editScore);
     if (isNaN(score)) { toast.error("Điểm không hợp lệ"); return; }
-    setData(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      const newStatus = score >= r.passScore ? "pass" : "fail";
-      return { ...r, score, status: newStatus as ExamResult["status"] };
-    }));
+    const row = data.find(r => r.id === id);
+    if (!row) return;
+    if (lockedExams.has(row.examPlanId)) { toast.error("Kết quả kỳ thi này đã bị khóa. Không thể chỉnh sửa."); return; }
+    if (score < 0 || score > row.maxScore) { toast.error(`Điểm phải trong khoảng 0 – ${row.maxScore}`); return; }
+    const newStatus: "pass" | "fail" = score >= row.passScore ? "pass" : "fail";
+    updateExamResult(id, { score, status: newStatus });
     setEditingId(null);
     toast.success("Đã cập nhật điểm thi");
+  };
+
+  const toggleLock = (examPlanId: string) => {
+    setLockedExams(prev => {
+      const next = new Set(prev);
+      if (next.has(examPlanId)) { next.delete(examPlanId); toast.info(`Đã mở khóa kỳ thi ${examPlanId}`); }
+      else { next.add(examPlanId); toast.success(`Đã khóa kết quả kỳ thi ${examPlanId}`); }
+      return next;
+    });
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const lines = text.split("\n").filter(l => l.trim());
+        const parsed: { code: string; score: number }[] = [];
+        for (const line of lines.slice(1)) { // skip header
+          const cols = line.split(",").map(c => c.replace(/"/g, "").trim());
+          const code = cols[0]; const score = parseFloat(cols[1]);
+          if (code && !isNaN(score)) parsed.push({ code, score });
+        }
+        if (parsed.length === 0) { toast.error("File CSV không có dữ liệu hợp lệ"); return; }
+        setCsvPreview(parsed);
+        toast.info(`Đã đọc ${parsed.length} dòng từ CSV. Nhấn "Áp dụng" để nhập điểm.`);
+      } catch { toast.error("Lỗi đọc file CSV"); }
+      e.target.value = "";
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const applyCsvImport = () => {
+    if (!csvPreview) return;
+    let updated = 0;
+    data.forEach(r => {
+      const row = csvPreview.find(c => c.code === r.seatNo);
+      if (!row || lockedExams.has(r.examPlanId)) return;
+      updated++;
+      const newStatus: "pass" | "fail" = row.score >= r.passScore ? "pass" : "fail";
+      updateExamResult(r.id, { score: row.score, status: newStatus });
+    });
+    setCsvPreview(null);
+    toast.success(`Đã nhập điểm từ CSV: ${updated} học viên được cập nhật`);
   };
 
   return (
@@ -97,9 +116,21 @@ export function AdminExamResults() {
             <h1 className="text-[24px] font-extrabold">Kết quả Thi</h1>
             <p className="text-emerald-100/70 text-[14px] mt-1">Nhập điểm, xem kết quả và xử lý phúc khảo</p>
           </div>
-          <button onClick={() => { toast.success("Đã xuất danh sách kết quả thi (.xlsx)"); }} className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all">
-            <Download className="w-4 h-4" /> Xuất Excel
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            >
+              <Upload className="w-4 h-4" /> Nhập CSV
+            </button>
+            <button
+              onClick={() => { toast.success("Đã xuất danh sách kết quả thi (.xlsx)"); }}
+              className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all"
+            >
+              <Download className="w-4 h-4" /> Xuất Excel
+            </button>
+          </div>
         </div>
       </div>
 
@@ -123,6 +154,43 @@ export function AdminExamResults() {
         ))}
       </div>
 
+      {/* CSV import preview banner */}
+      <AnimatePresence>
+        {csvPreview && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-2xl flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <Upload className="w-5 h-5 text-blue-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-blue-700 dark:text-blue-400 text-[14px]">Sẵn sàng nhập {csvPreview.length} bản ghi từ CSV</p>
+                <p className="text-[12px] text-blue-600/80 dark:text-blue-400/70">Các kỳ thi đang bị khóa sẽ không bị thay đổi.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => setCsvPreview(null)} className="px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 text-[13px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-500/20">Hủy</button>
+              <button onClick={applyCsvImport} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700">Áp dụng</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lock status per exam */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {examOptions.map(planId => {
+          const isLocked = lockedExams.has(planId);
+          const name = data.find(r => r.examPlanId === planId)?.examPlanName ?? planId;
+          return (
+            <button key={planId} onClick={() => toggleLock(planId)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] font-semibold transition-all ${isLocked ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400" : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-border text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/10"}`}
+            >
+              {isLocked ? <Lock className="w-3 h-3" /> : <LockOpen className="w-3 h-3" />}
+              {name} {isLocked ? "(Đã khóa)" : "(Mở)"}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters */}
       <div className="bg-white dark:bg-card border border-gray-100 dark:border-border rounded-2xl p-4 mb-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -131,7 +199,10 @@ export function AdminExamResults() {
         </div>
         <select value={filters.exam} onChange={e => setFilter("exam", e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none">
           <option value="all">Tất cả kỳ thi</option>
-          {examOptions.map(e => <option key={e} value={e}>{e}</option>)}
+          {examOptions.map(planId => {
+            const name = data.find(r => r.examPlanId === planId)?.examPlanName ?? planId;
+            return <option key={planId} value={planId}>{name}</option>;
+          })}
         </select>
         <select value={filters.status} onChange={e => setFilter("status", e.target.value)} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-border bg-gray-50 dark:bg-background text-[14px] outline-none">
           <option value="all">Tất cả kết quả</option>
@@ -159,15 +230,16 @@ export function AdminExamResults() {
             <tbody className="divide-y divide-gray-50 dark:divide-white/[0.03]">
               {paginated.map(r => {
                 const isEditing = editingId === r.id;
+                const isLocked = lockedExams.has(r.examPlanId);
                 const passPercent = r.score !== null ? Math.round((r.score / r.maxScore) * 100) : 0;
                 return (
                   <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors group">
                     <td className="px-4 py-3.5">
-                      <p className="font-mono text-[12px] text-muted-foreground">{r.candidateCode}</p>
+                      <p className="font-mono text-[12px] text-muted-foreground">{r.seatNo}</p>
                       <p className="font-semibold text-[#1a1a2e] dark:text-foreground">{r.studentName}</p>
                     </td>
                     <td className="px-4 py-3.5 hidden md:table-cell">
-                      <p className="font-medium text-[13px]">{r.examCode}</p>
+                      <p className="font-medium text-[13px]">{r.examPlanId}</p>
                       <p className="text-[12px] text-muted-foreground">{r.subject}</p>
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -201,7 +273,13 @@ export function AdminExamResults() {
                           <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><X className="w-4 h-4 text-muted-foreground" /></button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditingId(r.id); setEditScore(String(r.score ?? "")); }} className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-white/10 transition-all"><Edit2 className="w-4 h-4 text-muted-foreground" /></button>
+                        isLocked ? (
+                          <div className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Kết quả đã khóa">
+                            <Lock className="w-4 h-4 text-rose-400" />
+                          </div>
+                        ) : (
+                          <button onClick={() => { setEditingId(r.id); setEditScore(String(r.score ?? "")); }} className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-white/10 transition-all" title="Chỉnh sửa điểm"><Edit2 className="w-4 h-4 text-muted-foreground" /></button>
+                        )
                       )}
                     </td>
                   </tr>

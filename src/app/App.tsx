@@ -1,6 +1,7 @@
 ﻿import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AuthProvider } from "./components/auth/AuthContext";
+import { AppDataProvider } from "./context/AppDataContext";
 import { ThemeProvider } from "./components/ThemeContext";
 import { ReducedMotionProvider } from "./components/ReducedMotionContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -16,7 +17,9 @@ export default function App() {
         <ReducedMotionProvider>
           <MotionConfig reducedMotion="user">
             <AuthProvider>
+              <AppDataProvider>
               <RouterProvider router={router} />
+              </AppDataProvider>
               <PWAProvider />
               <PerformanceMonitor />
               <Toaster

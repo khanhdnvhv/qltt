@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../ThemeContext";
+import { NotificationCenter } from "./NotificationCenter";
 import { LoadingScreen } from "../ui/LoadingScreen";
 import { NetworkStatus } from "../ui/NetworkStatus";
 import { useFocusTrap, useEscapeKey } from "../../utils/hooks";
@@ -77,6 +78,7 @@ const MODULE_NAMES: Record<string, string> = {
   "fin": "Tài chính Kế toán",
   "admin": "Hành chính & Báo cáo",
   "reports": "Báo cáo thống kê",
+  "cert": "Phôi CC & Thanh tra",
   "teacher_dash": "Bảng điều khiển",
   "teacher_course": "Khóa học",
   "teacher_materials": "Học liệu của tôi",
@@ -103,6 +105,9 @@ const getNavItems = (role: string, module: string = "all") => {
       { icon: Building, label: "Báo cáo trung tâm", path: "/admin/reports/centers", module: "reports" },
       { icon: BarChart3, label: "Báo cáo đào tạo", path: "/admin/reports/training", module: "reports" },
       { icon: Award, label: "Báo cáo chứng chỉ", path: "/admin/reports/certificates", module: "reports" },
+
+      { icon: Package, label: "Quản lý Phôi CC", path: "/admin/cert-stock", module: "cert" },
+      { icon: ShieldAlert, label: "Thanh tra", path: "/admin/inspections", module: "cert" },
     ];
   } else if (role === "teacher") {
     items = [
@@ -214,6 +219,8 @@ const getAdminRouteNames = (role: string): Record<string, string> => ({
   "/admin/reports/centers": "Báo cáo trung tâm",
   "/admin/reports/training": "Báo cáo đào tạo",
   "/admin/reports/certificates": "Báo cáo chứng chỉ",
+  "/admin/cert-stock": "Quản lý Phôi Chứng Chỉ",
+  "/admin/inspections": "Thanh tra",
   "/admin/system-logs": "Nhật ký hệ thống",
   "/admin/system-config": "Cấu hình hệ thống",
   "/admin/teacher": "Bảng điều khiển",
@@ -250,22 +257,7 @@ function AdminBreadcrumb({ role }: { role: string }) {
   );
 }
 
-function NotificationCenter() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen(!open)} className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors" aria-label="Thong bao">
-        <Bell className="w-[18px] h-[18px] text-muted-foreground" />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-card border border-gray-200 dark:border-border rounded-xl shadow-lg p-3 z-50">
-          <p className="text-[16px] text-muted-foreground text-center py-4">Không có thông báo mới</p>
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 function CommandPalette({ role }: { role: string }) {
   const [open, setOpen] = useState(false);

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { Mail, ArrowRight, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 import { useDocumentTitle } from "../../utils/hooks";
 
 export function ForgotPasswordPage() {
-  useDocumentTitle("Quen mat khau");
+  useDocumentTitle("Quên mật khẩu");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export function ForgotPasswordPage() {
     e.preventDefault();
     setError("");
     if (!email) {
-      setError("Vui long nhap email");
+      setError("Vui lòng nhập email");
       return;
     }
     setLoading(true);
@@ -27,7 +27,7 @@ export function ForgotPasswordPage() {
     if (result.success) {
       setSent(true);
     } else {
-      setError(result.error || "Co loi xay ra");
+      setError(result.error || "Có lỗi xảy ra. Vui lòng thử lại");
     }
   };
 
@@ -41,16 +41,16 @@ export function ForgotPasswordPage() {
       >
         <Link to="/login" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-[#1a1a2e] dark:hover:text-foreground text-[15px] mb-8 transition-colors" style={{ fontWeight: 500 }}>
           <ArrowLeft className="w-4 h-4" />
-          Quay lai dang nhap
+          Quay lại đăng nhập
         </Link>
 
         <div className="flex items-center gap-2.5 mb-8">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center text-white text-[17px]" style={{ fontWeight: 800 }}>
-            IP
+            GD
           </div>
           <div>
-            <span className="text-[#1a1a2e] dark:text-foreground text-[19px]" style={{ fontWeight: 800 }}>IELTS</span>
-            <span className="text-primary text-[19px]" style={{ fontWeight: 800 }}> Pro</span>
+            <span className="text-[#1a1a2e] dark:text-foreground text-[19px]" style={{ fontWeight: 800 }}>GDNN</span>
+            <span className="text-primary text-[19px]" style={{ fontWeight: 800 }}>&nbsp;GDTX</span>
           </div>
         </div>
 
@@ -64,33 +64,33 @@ export function ForgotPasswordPage() {
               <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             </div>
             <h1 className="text-[24px] text-[#1a1a2e] dark:text-foreground mb-3" style={{ fontWeight: 800 }}>
-              Da gui email!
+              Đã gửi email!
             </h1>
             <p className="text-muted-foreground text-[16px] mb-6 leading-relaxed">
-              Chung toi da gui link dat lai mat khau den <span className="text-[#1a1a2e] dark:text-foreground" style={{ fontWeight: 600 }}>{email}</span>. Vui long kiem tra hop thu va lam theo huong dan.
+              Nếu địa chỉ <span className="text-[#1a1a2e] dark:text-foreground" style={{ fontWeight: 600 }}>{email}</span> có trong hệ thống, chúng tôi đã gửi liên kết đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.
             </p>
             <Link
               to="/reset-password"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-primary/90 text-white px-6 py-3 rounded-xl text-[16px] shadow-lg shadow-primary/20"
               style={{ fontWeight: 600 }}
             >
-              Dat lai mat khau (demo)
+              Đặt lại mật khẩu (demo)
               <ArrowRight className="w-4 h-4" />
             </Link>
             <p className="text-muted-foreground text-[16px] mt-5">
-              Khong nhan duoc email?{" "}
+              Không nhận được email?{" "}
               <button onClick={() => setSent(false)} className="text-primary hover:underline" style={{ fontWeight: 500 }}>
-                Thu lai
+                Thử lại
               </button>
             </p>
           </motion.div>
         ) : (
           <>
             <h1 className="text-[28px] text-[#1a1a2e] dark:text-foreground mb-2" style={{ fontWeight: 800 }}>
-              Quen mat khau?
+              Quên mật khẩu?
             </h1>
             <p className="text-muted-foreground text-[14.5px] mb-8 leading-relaxed">
-              Nhap email da dang ky, chung toi se gui link dat lai mat khau cho ban.
+              Nhập email đã đăng ký, chúng tôi sẽ gửi liên kết đặt lại mật khẩu cho bạn.
             </p>
 
             {error && (
@@ -127,7 +127,7 @@ export function ForgotPasswordPage() {
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    Gui link dat lai
+                    Gửi liên kết đặt lại
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
