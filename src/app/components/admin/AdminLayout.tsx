@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, MessageSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, Bell,
   BarChart3, Target, CreditCard, Award, Shield, Menu, X, Moon, Sun,
+  HelpCircle, Sparkles, RefreshCcw,
   Search, GraduationCap, Clock, Tag, Mail, LayoutGrid,
   Pen, Gift, Building,
   Beaker,
@@ -64,6 +65,8 @@ import { NotificationCenter } from "./NotificationCenter";
 import { LoadingScreen } from "../ui/LoadingScreen";
 import { NetworkStatus } from "../ui/NetworkStatus";
 import { useFocusTrap, useEscapeKey } from "../../utils/hooks";
+import { useAppData } from "../../context/AppDataContext";
+import { toast } from "sonner";
 
 const MODULE_NAMES: Record<string, string> = {
   "sys": "Quản trị Hệ thống",
@@ -436,17 +439,63 @@ function UserProfileMenu({ user, logout, navigate }: any) {
   );
 }
 
+const DEMO_STEPS = [
+  "Xem Dashboard Thống kê (Vai trò: Sở GD&ĐT)",
+  "Chuyển vai trò sang Trung tâm — xem Dashboard trung tâm",
+  "Mở Hồ sơ Trung tâm → chỉnh sửa thông tin giám đốc",
+  "Xem Báo cáo mạng lưới (menu Báo cáo trung tâm)",
+  "Dùng Ctrl+K để tìm kiếm nhanh chức năng",
+  "Xem Thanh tra và thêm kết quả thanh tra mới",
+];
+
+function DemoGuidePanel({ onClose, onReset }: { onClose: () => void; onReset: () => void }) {
+  return (
+    <div className="fixed bottom-20 right-5 z-[60] w-[300px] bg-white dark:bg-card rounded-2xl shadow-2xl border border-gray-100 dark:border-border overflow-hidden">
+      <div className="bg-gradient-to-r from-primary to-accent p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-white">
+            <Sparkles className="w-4 h-4"/>
+            <span className="text-[14px] font-bold">Hướng dẫn Demo</span>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+            <X className="w-4 h-4"/>
+          </button>
+        </div>
+        <p className="text-[12px] text-white/70 mt-1">Thử các tính năng theo thứ tự sau:</p>
+      </div>
+      <div className="p-4 space-y-2.5">
+        {DEMO_STEPS.map((step, i) => (
+          <div key={i} className="flex items-start gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mt-0.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">{i + 1}</span>
+            </div>
+            <span className="text-[12.5px] text-muted-foreground leading-snug">{step}</span>
+          </div>
+        ))}
+        <button
+          onClick={onReset}
+          className="w-full mt-1 flex items-center justify-center gap-2 border border-dashed border-gray-200 dark:border-border rounded-xl py-2.5 text-[13px] font-semibold text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+        >
+          <RefreshCcw className="w-3.5 h-3.5"/> Reset dữ liệu Demo
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const VALID_ROLES = ["department", "center", "teacher", "student"] as const;
 type AdminRole = "department" | "center" | "teacher" | "student";
 
 export function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [demoGuideOpen, setDemoGuideOpen] = useState(false);
   const [routeAnnouncement, setRouteAnnouncement] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { resetDemo } = useAppData();
   const isDark = theme === "dark";
   const initialRole: AdminRole = user?.role && (VALID_ROLES as readonly string[]).includes(user.role)
     ? user.role as AdminRole
@@ -687,6 +736,32 @@ export function AdminLayout() {
           </Suspense>
         </div>
       </div>
+
+      {/* Demo Guide floating button */}
+      <AnimatePresence>
+        {demoGuideOpen && (
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.95 }} transition={{ duration: 0.18 }}>
+            <DemoGuidePanel
+              onClose={() => setDemoGuideOpen(false)}
+              onReset={() => {
+                if (confirm("Reset toàn bộ dữ liệu demo về trạng thái ban đầu?")) {
+                  resetDemo();
+                  toast.success("Đã reset dữ liệu demo thành công!");
+                  setDemoGuideOpen(false);
+                }
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button
+        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+        onClick={() => setDemoGuideOpen(!demoGuideOpen)}
+        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-gradient-to-br from-primary to-accent text-white rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center"
+        title="Hướng dẫn Demo"
+      >
+        {demoGuideOpen ? <X className="w-5 h-5"/> : <HelpCircle className="w-5 h-5"/>}
+      </motion.button>
     </div>
   );
 }

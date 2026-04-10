@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, Eye, EyeOff, Check, X, GripVertical } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, Eye, EyeOff, Check, X, GripVertical, Inbox } from "lucide-react";
 
 /**
  * VirtualTable - Lightweight virtualized table for large admin datasets.
@@ -636,11 +636,14 @@ export function VirtualTable<T>({
             <tbody>
               {sortedData.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={totalColCount}
-                    className="text-center py-12 text-muted-foreground text-[15px]"
-                  >
-                    {emptyMessage}
+                  <td colSpan={totalColCount}>
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-3">
+                        <Inbox className="w-7 h-7 text-muted-foreground opacity-40"/>
+                      </div>
+                      <p className="text-[15px] font-semibold text-muted-foreground">{emptyMessage}</p>
+                      <p className="text-[12.5px] text-muted-foreground/50 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -654,7 +657,7 @@ export function VirtualTable<T>({
       {(shouldVirtualize || sortKey || showColumnToggle) && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-border">
           <span className="text-[15px] text-muted-foreground">
-            {sortedData.length} hang
+            {sortedData.length} hàng
             {shouldVirtualize && " ⬢ Virtual scrolling"}
             {hiddenCols.size > 0 && ` ⬢ ${hiddenCols.size} cot an`}
           </span>

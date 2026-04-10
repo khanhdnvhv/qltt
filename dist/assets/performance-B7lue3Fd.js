@@ -1,1 +1,0 @@
-function r(t){if(typeof document>"u"||document.querySelector(`link[rel="prefetch"][href="${t}"]`))return;const e=document.createElement("link");e.rel="prefetch",e.href=t,e.as="document",document.head.appendChild(e)}export{r as p};

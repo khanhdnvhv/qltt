@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useUrlPagination } from "../../utils/useUrlPagination";
 import { Pagination } from "./Pagination";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line,
   PieChart, Pie, Cell
 } from "recharts";
@@ -27,18 +27,6 @@ interface CenterReportData {
 }
 
 
-const TREND_DATA = [
-  { month: "T7/25", hocVien: 48200, lopHoc: 420 },
-  { month: "T8/25", hocVien: 51300, lopHoc: 448 },
-  { month: "T9/25", hocVien: 54800, lopHoc: 472 },
-  { month: "T10/25", hocVien: 58100, lopHoc: 501 },
-  { month: "T11/25", hocVien: 60400, lopHoc: 518 },
-  { month: "T12/25", hocVien: 57200, lopHoc: 495 },
-  { month: "T1/26", hocVien: 52600, lopHoc: 453 },
-  { month: "T2/26", hocVien: 55900, lopHoc: 478 },
-  { month: "T3/26", hocVien: 61300, lopHoc: 526 },
-  { month: "T4/26", hocVien: 63700, lopHoc: 544 },
-];
 
 const PIE_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#3b82f6"];
 
@@ -68,39 +56,50 @@ const statusCfg = {
   pending:   { label: "Chờ cấp phép",  cls: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" },
 };
 
+function parseDMY(s: string): Date | null {
+  const [d, mo, y] = s.split("/");
+  if (!d || !mo || !y) return null;
+  return new Date(+y, +mo - 1, +d);
+}
+
 export function ReportCenters() {
-  const { classes: storeClasses } = useAppData();
+  const { classes: storeClasses, centers, enrollments: storeEnrollments } = useAppData();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedCenter, setSelectedCenter] = useState<CenterReportData | null>(null);
   const { page, pageSize, setPage, setPageSize } = useUrlPagination();
 
-  // Aggregate live data from storeClasses grouped by class type
+  // Per-center live data from the centers store
   const liveData = useMemo((): CenterReportData[] => {
-    const TYPE_LABEL: Record<string, string> = { GDNN: "GDNN", GDTX: "GDTX", NNTH: "Ngoại ngữ/Tin học" };
-    const map: Record<string, CenterReportData> = {};
-    storeClasses.forEach(cls => {
-      const key = cls.type;
-      if (!map[key]) {
-        map[key] = {
-          id: `SECTOR-${cls.type}`,
-          name: `Khối ${TYPE_LABEL[cls.type] || cls.type} — Toàn tỉnh`,
-          type: TYPE_LABEL[cls.type] || cls.type,
-          district: "Toàn tỉnh",
-          totalStudents: 0,
-          activeClasses: 0,
-          capacity: 0,
-          status: "active",
-        };
-      }
-      if (cls.status === "Hoạt động" || cls.status === "Tuyển sinh") {
-        map[key].activeClasses++;
-        map[key].capacity += cls.maxStudents;
-        map[key].totalStudents += cls.currentStudents;
-      }
+    const totalActive = storeClasses.filter(
+      cls => cls.status === "Hoạt động" || cls.status === "Tuyển sinh"
+    ).length;
+    const totalStu = centers.reduce((s, c) => s + c.currentStudents, 0) || 1;
+    return centers.map(c => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      district: c.district,
+      totalStudents: c.currentStudents,
+      activeClasses: Math.max(1, Math.round(totalActive * c.currentStudents / totalStu)),
+      capacity: c.studentCapacity,
+      status: c.status === "revoked" ? "suspended" : c.status,
+    }));
+  }, [centers, storeClasses]);
+
+  // Monthly new-enrollment trend from real enrollment data
+  const trendData = useMemo(() => {
+    const months = ["T7/25","T8/25","T9/25","T10/25","T11/25","T12/25","T1/26","T2/26","T3/26","T4/26"];
+    const result = months.map(m => ({ month: m, "Tuyển sinh mới": 0 }));
+    storeEnrollments.forEach(e => {
+      const d = parseDMY(e.enrollDate);
+      if (!d) return;
+      const key = `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
+      const idx = months.indexOf(key);
+      if (idx !== -1) result[idx]["Tuyển sinh mới"]++;
     });
-    return Object.values(map);
-  }, [storeClasses]);
+    return result;
+  }, [storeEnrollments]);
 
   // Aggregated KPIs
   const totalCenters = liveData.length;
@@ -288,18 +287,15 @@ export function ReportCenters() {
       <div className="bg-white dark:bg-card p-5 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-emerald-500"/>
-          <h3 className="text-[15px] font-bold text-[#1a1a2e] dark:text-foreground">Xu hướng Tuyển sinh 10 tháng gần nhất</h3>
+          <h3 className="text-[15px] font-bold text-[#1a1a2e] dark:text-foreground">Tuyển sinh mới theo tháng (10 tháng gần nhất)</h3>
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={TREND_DATA} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <LineChart data={trendData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false}/>
             <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false}/>
-            <YAxis yAxisId="left" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
-            <Tooltip formatter={(value: number, name: string) => [value.toLocaleString(), name === "hocVien" ? "Học viên" : "Lớp học"]}/>
-            <Legend formatter={(val) => val === "hocVien" ? "Học viên" : "Lớp học"} />
-            <Line yAxisId="left" type="monotone" dataKey="hocVien" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }}/>
-            <Line yAxisId="right" type="monotone" dataKey="lopHoc" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="5 3"/>
+            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false}/>
+            <Tooltip formatter={(value: number) => [value.toLocaleString() + " HV", "Tuyển sinh mới"]}/>
+            <Line type="monotone" dataKey="Tuyển sinh mới" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }}/>
           </LineChart>
         </ResponsiveContainer>
       </div>

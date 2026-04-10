@@ -22,18 +22,6 @@ interface TrainingReportData {
 }
 
 
-const MONTHLY_TREND = [
-  { month: "T7/25", "Tin học": 4200, "Ngoại ngữ": 3100, "GDNN": 850, "GDTX": 1200 },
-  { month: "T8/25", "Tin học": 4600, "Ngoại ngữ": 3400, "GDNN": 920, "GDTX": 1350 },
-  { month: "T9/25", "Tin học": 5100, "Ngoại ngữ": 3750, "GDNN": 980, "GDTX": 1480 },
-  { month: "T10/25","Tin học": 5300, "Ngoại ngữ": 3900, "GDNN": 1050,"GDTX": 1600 },
-  { month: "T11/25","Tin học": 5800, "Ngoại ngữ": 4100, "GDNN": 1100,"GDTX": 1720 },
-  { month: "T12/25","Tin học": 5400, "Ngoại ngữ": 3800, "GDNN": 950, "GDTX": 1550 },
-  { month: "T1/26", "Tin học": 4900, "Ngoại ngữ": 3500, "GDNN": 870, "GDTX": 1400 },
-  { month: "T2/26", "Tin học": 5200, "Ngoại ngữ": 3700, "GDNN": 930, "GDTX": 1510 },
-  { month: "T3/26", "Tin học": 5700, "Ngoại ngữ": 4000, "GDNN": 1020,"GDTX": 1650 },
-  { month: "T4/26", "Tin học": 6100, "Ngoại ngữ": 4300, "GDNN": 1150,"GDTX": 1780 },
-];
 
 const SECTOR_COLORS: Record<string, string> = {
   "Tin học":   "#6366f1",
@@ -43,8 +31,7 @@ const SECTOR_COLORS: Record<string, string> = {
   "NNTH":      "#8b5cf6",
 };
 
-// Sectors shown in the MONTHLY_TREND line chart (historical data)
-const TREND_SECTORS = ["Tin học", "Ngoại ngữ", "GDNN", "GDTX"] as const;
+const TREND_SECTORS = ["GDNN", "GDTX", "NNTH"] as const;
 
 function exportCsv(rows: TrainingReportData[]) {
   const header = ["Mã", "Khối Ngành", "Lĩnh vực", "Tổng Đầu Vào", "Đạt", "Trượt", "Tỷ lệ Bỏ học (%)"];
@@ -149,6 +136,30 @@ export function ReportTraining() {
   const avgDropRate = liveData.length > 0
     ? (liveData.reduce((a, b) => a + b.dropRate, 0) / liveData.length).toFixed(1)
     : "0.0";
+
+  // Monthly enrollment trend computed from real data
+  const monthlyTrend = useMemo(() => {
+    const months = ["T7/25","T8/25","T9/25","T10/25","T11/25","T12/25","T1/26","T2/26","T3/26","T4/26"];
+    const classType: Record<string, string> = {};
+    storeClasses.forEach(cls => { classType[cls.id] = cls.type; });
+    const parseDate = (s: string): Date | null => {
+      const [d, mo, y] = s.split("/");
+      if (!d || !mo || !y) return null;
+      return new Date(+y, +mo - 1, +d);
+    };
+    const result: { month: string; GDNN: number; GDTX: number; NNTH: number }[] =
+      months.map(m => ({ month: m, GDNN: 0, GDTX: 0, NNTH: 0 }));
+    storeEnrollments.forEach(e => {
+      const d = parseDate(e.enrollDate);
+      if (!d) return;
+      const key = `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
+      const idx = months.indexOf(key);
+      if (idx === -1) return;
+      const type = (classType[e.classId] as "GDNN" | "GDTX" | "NNTH") || "NNTH";
+      result[idx][type]++;
+    });
+    return result;
+  }, [storeEnrollments, storeClasses]);
 
   // Bar chart data aggregated by sector
   const sectorBarData = useMemo(() => {
@@ -267,10 +278,10 @@ export function ReportTraining() {
             <h3 className="text-[15px] font-bold text-[#1a1a2e] dark:text-foreground">Xu hướng Tuyển sinh theo Lĩnh vực</h3>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={MONTHLY_TREND} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <LineChart data={monthlyTrend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false}/>
               <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
+              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false}/>
               <Tooltip formatter={(value: number, name: string) => [value.toLocaleString() + " HV", name]}/>
               <Legend/>
               {TREND_SECTORS.map(sector => (
