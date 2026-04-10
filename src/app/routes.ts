@@ -246,6 +246,10 @@ export const router = createBrowserRouter([
         path: "inspections",
         lazy: () => import("./components/admin/AdminInspections").then((m) => ({ Component: m.AdminInspections })),
       },
+      {
+        path: "center-profile",
+        lazy: () => import("./components/admin/AdminCenterProfile").then((m) => ({ Component: m.AdminCenterProfile })),
+      },
       // ── Student portal ───────────────────────────────────────────
       {
         path: "student/schedule",

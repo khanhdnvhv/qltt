@@ -108,6 +108,7 @@ const getNavItems = (role: string, module: string = "all") => {
 
       { icon: Package, label: "Quản lý Phôi CC", path: "/admin/cert-stock", module: "cert" },
       { icon: ShieldAlert, label: "Thanh tra", path: "/admin/inspections", module: "cert" },
+      { icon: Building, label: "Hồ sơ Trung tâm", path: "/admin/center-profile", module: "cert" },
     ];
   } else if (role === "teacher") {
     items = [
@@ -172,9 +173,10 @@ const getNavItems = (role: string, module: string = "all") => {
       { icon: UserX, label: "Thôi học", path: "/admin/students/dropout", module: "stu" },
       
       { icon: GraduationCap, label: "Giảng viên", path: "/admin/teachers", module: "tea" },
+      { icon: Building, label: "Hồ sơ Trung tâm", path: "/admin/center-profile", module: "sys" },
     ];
   }
-  
+
   if (module && module !== "all") {
     items = items.filter(item => item.module === module);
   }
@@ -221,6 +223,7 @@ const getAdminRouteNames = (role: string): Record<string, string> => ({
   "/admin/reports/certificates": "Báo cáo chứng chỉ",
   "/admin/cert-stock": "Quản lý Phôi Chứng Chỉ",
   "/admin/inspections": "Thanh tra",
+  "/admin/center-profile": "Hồ sơ Trung tâm",
   "/admin/system-logs": "Nhật ký hệ thống",
   "/admin/system-config": "Cấu hình hệ thống",
   "/admin/teacher": "Bảng điều khiển",
